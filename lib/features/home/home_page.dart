@@ -4,6 +4,7 @@ import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/anime.dart';
 import '../../shared/widgets/tv_scaffold.dart';
+import '../../shared/widgets/tv_button.dart';
 import 'widgets/content_row.dart';
 import 'widgets/hero_banner.dart';
 
@@ -78,7 +79,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(_error!, style: const TextStyle(color: AppTheme.textSecondary)),
                       const SizedBox(height: 16),
-                      TextButton(onPressed: _load, child: const Text('Réessayer', style: TextStyle(color: AppTheme.primary))),
+                      TvButton(autofocus: true, onTap: _load, child: const Text('Réessayer', style: TextStyle(color: Colors.white))),
                     ],
                   ),
                 )

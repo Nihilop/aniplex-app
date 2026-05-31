@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/auth/device_auth_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/tv_button.dart';
 
 /// Page d'authentification par device code (RFC 8628).
 /// Affiche un QR code + userCode. Polle le serveur jusqu'à approbation.
@@ -305,30 +306,11 @@ class _StatusMessage extends StatelessWidget {
         const SizedBox(height: 8),
         Text(subtitle, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
         const SizedBox(height: 24),
-        Focus(
+        TvButton(
           autofocus: true,
-          child: Builder(builder: (ctx) {
-            final focused = Focus.of(ctx).hasFocus;
-            return GestureDetector(
-              onTap: onAction,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: focused ? Colors.white : Colors.transparent,
-                    width: 2,
-                  ),
-                ),
-                child: Text(
-                  actionLabel,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-                ),
-              ),
-            );
-          }),
+          onTap: onAction,
+          child: Text(actionLabel,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -355,9 +337,10 @@ class _ErrorView extends StatelessWidget {
           style: const TextStyle(color: AppTheme.textSecondary, fontSize: 15),
         ),
         const SizedBox(height: 20),
-        TextButton(
-          onPressed: onRetry,
-          child: const Text('Réessayer', style: TextStyle(color: AppTheme.primary)),
+        TvButton(
+          autofocus: true,
+          onTap: onRetry,
+          child: const Text('Réessayer', style: TextStyle(color: Colors.white)),
         ),
       ],
     );

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/episode.dart';
+import '../../shared/widgets/tv_button.dart';
 
 // video_player ne supporte pas Windows/Linux/macOS.
 // Sur desktop on affiche un placeholder.
@@ -81,7 +82,7 @@ class _WatchPageState extends State<WatchPage> {
               const SizedBox(height: 12),
               Text(_errorMsg ?? 'Erreur', style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 16),
-              TextButton(onPressed: () => context.pop(), child: const Text('Retour', style: TextStyle(color: Colors.white70))),
+              TvButton(autofocus: true, onTap: () => context.pop(), outlined: true, child: const Text('Retour', style: TextStyle(color: Colors.white70))),
             ],
           ),
         ),
@@ -211,11 +212,15 @@ class _DesktopPlayerStubState extends State<_DesktopPlayerStub> {
                 ),
               ),
               const SizedBox(height: 24),
-              TextButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                label: const Text('Retour'),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+              TvButton(
+                autofocus: true,
+                onTap: widget.onBack,
+                outlined: true,
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textSecondary),
+                  SizedBox(width: 6),
+                  Text('Retour', style: TextStyle(color: AppTheme.textSecondary)),
+                ]),
               ),
             ],
           ),

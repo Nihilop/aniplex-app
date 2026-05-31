@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/models/anime.dart';
 import '../../shared/widgets/anime_card.dart';
 import '../../shared/widgets/tv_scaffold.dart';
+import '../../shared/widgets/tv_button.dart';
 
 class CataloguePage extends StatefulWidget {
   const CataloguePage({super.key});
@@ -104,7 +105,7 @@ class _CataloguePageState extends State<CataloguePage> {
                     children: [
                       Text(_error!, style: const TextStyle(color: AppTheme.textSecondary)),
                       const SizedBox(height: 12),
-                      TextButton(onPressed: _load, child: const Text('Réessayer', style: TextStyle(color: AppTheme.primary))),
+                      TvButton(autofocus: true, onTap: _load, child: const Text('Réessayer', style: TextStyle(color: Colors.white))),
                     ],
                   ),
                 )
