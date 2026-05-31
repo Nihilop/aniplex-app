@@ -239,8 +239,8 @@ class _PlayerState extends State<_Player> {
   Timer? _seekTimer;
   bool   _isPlaying    = false;
 
-  StreamSubscription<bool>?            _playingSub;
-  StreamSubscription<PlayerState>?     _errorSub;
+  StreamSubscription<bool>?   _playingSub;
+  StreamSubscription<String>? _errorSub;
 
   @override
   void initState() {

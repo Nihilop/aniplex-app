@@ -328,7 +328,7 @@ class _SkipButtonState extends State<_SkipButton> {
               width: _focused ? 2 : 1,
             ),
           ),
-          child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          child: Text(widget.label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
         ),
       ),
     );
