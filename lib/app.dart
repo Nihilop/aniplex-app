@@ -69,19 +69,17 @@ class AniplexApp extends StatefulWidget {
 }
 
 class _AniplexAppState extends State<AniplexApp> {
-  final _navigatorKey = GlobalKey<NavigatorState>();
-
   @override
   void initState() {
     super.initState();
-    // Check update 5s après le démarrage — quelle que soit la page affichée
     Future.delayed(const Duration(seconds: 5), _checkUpdate);
   }
 
   Future<void> _checkUpdate() async {
     final release = await AppUpdater.checkForUpdate();
     if (release == null) return;
-    final ctx = _navigatorKey.currentContext;
+    // Utilise la clé navigator de GoRouter — toujours valide
+    final ctx = _router.routerDelegate.navigatorKey.currentContext;
     if (ctx != null && ctx.mounted) {
       await UpdateDialog.show(ctx, release);
     }
