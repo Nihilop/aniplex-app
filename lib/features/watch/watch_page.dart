@@ -43,8 +43,12 @@ class _WatchPageState extends State<WatchPage> {
       final res = await _api.get<Map<String, dynamic>>(
         '/api/aniplex/watch/${widget.animeId}/${widget.episodeId}',
       );
-      final data   = res.data!;
-      final hlsUrl = (data['hlsUrl'] ?? data['streamUrl']) as String? ?? '';
+      final data = res.data!;
+      // Le backend renvoie une URL relative (/api/...) — on la rend absolue
+      var hlsUrl = (data['hlsUrl'] ?? data['streamUrl']) as String? ?? '';
+      if (hlsUrl.isNotEmpty && !hlsUrl.startsWith('http')) {
+        hlsUrl = '${_api.baseUrl}$hlsUrl';
+      }
       if (hlsUrl.isEmpty) {
         setState(() { _error = true; _errorMsg = 'Aucun fichier disponible.'; _loading = false; });
         return;
