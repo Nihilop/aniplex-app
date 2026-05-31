@@ -1,18 +1,19 @@
-import 'dart:io' show Platform, Directory;
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
-import 'package:open_file_plus/open_file_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-// À adapter à ton dépôt GitHub.
 const _kGithubOwner = 'nihilop';
 const _kGithubRepo  = 'aniplex-app';
 const _kApkAsset    = 'app-release.apk';
 
+const _installChannel = MethodChannel('com.aniplex.aniplex_tv/install');
+
 class ReleaseInfo {
-  final String tagName;     // ex: "v1.2.0"
-  final String version;     // ex: "1.2.0"
+  final String tagName;
+  final String version;
   final String downloadUrl;
   final String? releaseNotes;
 
@@ -34,38 +35,34 @@ class AppUpdater {
     },
   ));
 
-  /// Vérifie si une mise à jour est disponible.
-  /// Retourne [ReleaseInfo] si une version plus récente existe, null sinon.
-  /// Ne lance jamais d'exception — silencieux en cas d'erreur réseau.
+  /// Vérifie si une mise à jour est disponible. Silencieux en cas d'erreur.
   static Future<ReleaseInfo?> checkForUpdate() async {
-    // Seulement sur Android
     if (!Platform.isAndroid) return null;
-
     try {
-      final info = await PackageInfo.fromPlatform();
+      final info    = await PackageInfo.fromPlatform();
       final current = _parseVersion(info.version);
 
-      final res = await _dio.get<Map<String, dynamic>>(
+      final res  = await _dio.get<Map<String, dynamic>>(
         'https://api.github.com/repos/$_kGithubOwner/$_kGithubRepo/releases/latest',
       );
-      final data = res.data!;
+      final data    = res.data!;
       final tagName = data['tag_name'] as String? ?? '';
       final latest  = _parseVersion(tagName.replaceFirst('v', ''));
 
       if (!_isNewer(latest, current)) return null;
 
-      // Trouver l'asset APK
       final assets = (data['assets'] as List? ?? []);
-      final asset  = assets.firstWhere(
-        (a) => (a as Map<String, dynamic>)['name'] == _kApkAsset,
-        orElse: () => null,
+      final asset  = assets.cast<Map<String, dynamic>>().firstWhere(
+        (a) => a['name'] == _kApkAsset,
+        orElse: () => {},
       );
-      if (asset == null) return null;
+      final url = asset['browser_download_url'] as String?;
+      if (url == null || url.isEmpty) return null;
 
       return ReleaseInfo(
         tagName:      tagName,
         version:      tagName.replaceFirst('v', ''),
-        downloadUrl:  (asset as Map<String, dynamic>)['browser_download_url'] as String,
+        downloadUrl:  url,
         releaseNotes: data['body'] as String?,
       );
     } catch (_) {
@@ -73,8 +70,7 @@ class AppUpdater {
     }
   }
 
-  /// Télécharge l'APK et lance l'installation système.
-  /// [onProgress] reçoit 0.0 → 1.0.
+  /// Télécharge l'APK et déclenche l'installeur système Android.
   static Future<void> downloadAndInstall(
     ReleaseInfo release, {
     void Function(double)? onProgress,
@@ -90,7 +86,7 @@ class AppUpdater {
       },
     );
 
-    await OpenFile.open(path, type: 'application/vnd.android.package-archive');
+    await _installChannel.invokeMethod('installApk', {'path': path});
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
