@@ -84,6 +84,22 @@ class ApiClient {
   Future<Response<T>> delete<T>(String path) =>
       _dio.delete<T>(path);
 
+  // ── Session cookie pour les players externes (ExoPlayer) ─────────
+
+  /// Retourne le header Cookie à passer à VideoPlayerController
+  /// pour que ExoPlayer puisse s'authentifier sur le serveur HLS.
+  Future<Map<String, String>> getVideoHeaders() async {
+    try {
+      final uri     = Uri.parse(baseUrl);
+      final cookies = await _cookieJar.loadForRequest(uri);
+      if (cookies.isEmpty) return {};
+      final cookieHeader = cookies.map((c) => '${c.name}=${c.value}').join('; ');
+      return {'Cookie': cookieHeader};
+    } catch (_) {
+      return {};
+    }
+  }
+
   // ── Auth check ────────────────────────────────────────────────────
 
   Future<bool> isAuthenticated() async {

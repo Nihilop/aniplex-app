@@ -31,6 +31,7 @@ class _WatchPageState extends State<WatchPage> {
   String?  _hlsUrl;
   Episode? _episode;
   int      _startPosition = 0;
+  Map<String, String> _videoHeaders = {};
 
   @override
   void initState() {
@@ -53,9 +54,10 @@ class _WatchPageState extends State<WatchPage> {
         setState(() { _error = true; _errorMsg = 'Aucun fichier disponible.'; _loading = false; });
         return;
       }
-      final ep    = Episode.fromJson(data['episode'] as Map<String, dynamic>);
-      final start = data['startPosition'] as int? ?? 0;
-      setState(() { _hlsUrl = hlsUrl; _episode = ep; _startPosition = start; _loading = false; });
+      final ep      = Episode.fromJson(data['episode'] as Map<String, dynamic>);
+      final start   = data['startPosition'] as int? ?? 0;
+      final headers = await _api.getVideoHeaders();
+      setState(() { _hlsUrl = hlsUrl; _episode = ep; _startPosition = start; _videoHeaders = headers; _loading = false; });
     } catch (e) {
       setState(() { _error = true; _errorMsg = 'Impossible de charger la vidéo.'; _loading = false; });
     }
@@ -99,6 +101,7 @@ class _WatchPageState extends State<WatchPage> {
       animeId:      widget.animeId,
       episodeId:    widget.episodeId,
       startSeconds: _startPosition,
+      headers:      _videoHeaders,
       onBack:       () => context.pop(),
       onSaveProgress: _saveProgress,
     );
@@ -204,6 +207,7 @@ class _MobilePlayer extends StatefulWidget {
   final String    animeId;
   final String    episodeId;
   final int       startSeconds;
+  final Map<String, String> headers;
   final VoidCallback onBack;
   final Future<void> Function(int pos, int dur, {bool finished}) onSaveProgress;
 
@@ -213,6 +217,7 @@ class _MobilePlayer extends StatefulWidget {
     required this.animeId,
     required this.episodeId,
     required this.startSeconds,
+    required this.headers,
     required this.onBack,
     required this.onSaveProgress,
   });
@@ -249,6 +254,7 @@ class _MobilePlayerState extends State<_MobilePlayer> {
     try {
       _controller = VideoPlayerController.networkUrl(
         Uri.parse(widget.hlsUrl),
+        httpHeaders: widget.headers,
         videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
       );
       await _controller.initialize();
