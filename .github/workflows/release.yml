@@ -52,7 +52,7 @@ jobs:
 
       # ── Build APK ────────────────────────────────────────────────────────
       - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm64
+        run: flutter build apk --release
 
       # ── Copie APK avec nom versionné (lisible) + garde app-release.apk (updater) ──
       - name: Prepare APK assets
