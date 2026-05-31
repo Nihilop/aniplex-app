@@ -378,9 +378,10 @@ class _EpisodeItemState extends State<_EpisodeItem> {
 
   @override
   Widget build(BuildContext context) {
-    final ep       = widget.episode;
-    final progress = widget.progress;
-    final pct      = progress != null && ep.duration != null && ep.duration! > 0
+    final ep        = widget.episode;
+    final progress  = widget.progress;
+    final completed = progress?.completed ?? false;
+    final pct       = !completed && progress != null && ep.duration != null && ep.duration! > 0
         ? (progress.position / ep.duration!).clamp(0.0, 1.0)
         : null;
 
@@ -428,17 +429,26 @@ class _EpisodeItemState extends State<_EpisodeItem> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Thumbnail placeholder
-              Container(
-                width: 80,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppTheme.card,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: widget.hasFile
-                    ? const Icon(Icons.play_circle_outline_rounded, color: AppTheme.textMuted, size: 20)
-                    : const Icon(Icons.lock_outline_rounded, color: AppTheme.textMuted, size: 16),
+              // Thumbnail + état de visionnage
+              Stack(
+                children: [
+                  Container(
+                    width: 80, height: 46,
+                    decoration: BoxDecoration(
+                      color: completed ? AppTheme.primary.withOpacity(0.15) : AppTheme.card,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: widget.hasFile
+                        ? Icon(
+                            completed
+                                ? Icons.check_circle_rounded
+                                : Icons.play_circle_outline_rounded,
+                            color: completed ? AppTheme.primary : AppTheme.textMuted,
+                            size: 20,
+                          )
+                        : const Icon(Icons.lock_outline_rounded, color: AppTheme.textMuted, size: 16),
+                  ),
+                ],
               ),
               const SizedBox(width: 12),
               // Title + progress
@@ -476,6 +486,11 @@ class _EpisodeItemState extends State<_EpisodeItem> {
                 const Padding(
                   padding: EdgeInsets.only(left: 8),
                   child: Icon(Icons.block_rounded, color: AppTheme.textMuted, size: 14),
+                )
+              else if (completed)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check_circle_rounded, color: AppTheme.primary, size: 16),
                 ),
             ],
           ),
