@@ -22,12 +22,12 @@ class Episode {
   factory Episode.fromJson(Map<String, dynamic> j) => Episode(
     id:       j['id'] as String,
     animeId:  j['animeId'] as String,
-    number:   j['number'] as int?,
-    title:    j['title'] as String?,
-    airDate:  j['airDate'] as String?,
+    number:   (j['number']   as num?)?.toInt(),
+    title:    j['title']   as String?,
+    airDate:  j['airDate']  as String?,
     isFiller: j['isFiller'] as bool? ?? false,
-    hasFile:  j['hasFile'] as bool? ?? false,
-    duration: j['duration'] as int?,
+    hasFile:  j['hasFile']  as bool? ?? false,
+    duration: (j['duration'] as num?)?.toInt(),
   );
 
   String get displayTitle => title != null
@@ -55,8 +55,8 @@ class EpisodeProgress {
 
   factory EpisodeProgress.fromJson(Map<String, dynamic> j) => EpisodeProgress(
     episodeId: j['episodeId'] as String,
-    position:  (j['position'] as num).toDouble(),
-    duration:  (j['duration'] as num?)?.toDouble(),
+    position:  (j['position']  as num?)?.toDouble() ?? 0.0,
+    duration:  (j['duration']  as num?)?.toDouble(),
     completed: j['completed'] as bool? ?? false,
   );
 }

@@ -43,7 +43,7 @@ class Anime {
     status:         j['status'] as String?,
     type:           j['type'] as String?,
     season:         j['season'] as String?,
-    totalEpisodes:  j['totalEpisodes'] as int?,
+    totalEpisodes:  (j['totalEpisodes'] as num?)?.toInt(),
     voteAverage:    (j['voteAverage'] as num?)?.toDouble(),
     genres:         List<String>.from(j['genres'] as List? ?? []),
     description:    j['description'] as String?,
