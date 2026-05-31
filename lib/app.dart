@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'core/api/api_client.dart';
 import 'core/theme/app_theme.dart';
+import 'core/update/app_updater.dart';
+import 'core/update/update_dialog.dart';
 import 'features/auth/device_auth_page.dart';
 import 'features/catalogue/anime_detail_page.dart';
 import 'features/catalogue/catalogue_page.dart';
@@ -63,8 +65,30 @@ final _router = GoRouter(
   ),
 );
 
-class AniplexApp extends StatelessWidget {
+class AniplexApp extends StatefulWidget {
   const AniplexApp({super.key});
+  @override
+  State<AniplexApp> createState() => _AniplexAppState();
+}
+
+class _AniplexAppState extends State<AniplexApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Check update 5s après le démarrage — quelle que soit la page affichée
+    Future.delayed(const Duration(seconds: 5), _checkUpdate);
+  }
+
+  Future<void> _checkUpdate() async {
+    final release = await AppUpdater.checkForUpdate();
+    if (release == null) return;
+    final ctx = _navigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      await UpdateDialog.show(ctx, release);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
