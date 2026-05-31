@@ -336,7 +336,7 @@ class _SearchResults extends StatelessWidget {
         crossAxisCount: 5,
         crossAxisSpacing: 12,
         mainAxisSpacing: 16,
-        childAspectRatio: 160 / 294,
+        childAspectRatio: 2 / 3.6,
       ),
       itemCount: results.length,
       itemBuilder: (context, index) => AnimeCard(

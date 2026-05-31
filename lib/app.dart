@@ -24,14 +24,11 @@ final _router = GoRouter(
       return path == '/setup' ? null : '/setup';
     }
 
-    // If not authenticated → go to auth (except if already there or in setup)
-    if (path == '/setup') return null;
-
     final authed = await api.isAuthenticated();
     if (!authed) {
       return path == '/auth' ? null : '/auth';
     }
-    // Authenticated — if still on /auth or /setup, redirect home
+    // Authentifié → skip setup et auth, aller directement home
     if (path == '/auth' || path == '/setup') return '/home';
     return null;
   },

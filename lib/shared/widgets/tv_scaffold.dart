@@ -26,9 +26,9 @@ extension NavItemX on NavItem {
   };
 }
 
-/// Shell Netflix TV : top navbar + contenu.
-/// UP depuis contenu → focus navbar / DOWN depuis navbar → focus contenu.
-class TvScaffold extends StatefulWidget {
+/// Shell TV : navbar en haut + contenu.
+/// La traversée D-pad est entièrement gérée par Flutter (spatial algorithm).
+class TvScaffold extends StatelessWidget {
   final NavItem current;
   final Widget child;
 
@@ -39,67 +39,17 @@ class TvScaffold extends StatefulWidget {
   });
 
   @override
-  State<TvScaffold> createState() => _TvScaffoldState();
-}
-
-class _TvScaffoldState extends State<TvScaffold> {
-  final _navScope     = FocusScopeNode();
-  final _contentScope = FocusScopeNode();
-  bool _navFocused = false;
-
-  @override
-  void dispose() {
-    _navScope.dispose();
-    _contentScope.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top Navbar ─────────────────────────────────────────────────
-            FocusScope(
-              node: _navScope,
-              onFocusChange: (f) => setState(() => _navFocused = f),
-              child: Focus(
-                // DOWN from navbar → focus content
-                onKeyEvent: (_, event) {
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    _contentScope.requestFocus();
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: _NavBar(
-                  current: widget.current,
-                  onTap: (item) => context.go(item.route),
-                ),
-              ),
+            _NavBar(
+              current: current,
+              onTap: (item) => context.go(item.route),
             ),
-            // ── Content ────────────────────────────────────────────────────
-            Expanded(
-              child: FocusScope(
-                node: _contentScope,
-                child: Focus(
-                  // UP from content (not already in nav) → focus navbar
-                  onKeyEvent: (_, event) {
-                    if (event is KeyDownEvent &&
-                        event.logicalKey == LogicalKeyboardKey.arrowUp &&
-                        !_navFocused) {
-                      _navScope.requestFocus();
-                      return KeyEventResult.handled;
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: widget.child,
-                ),
-              ),
-            ),
+            Expanded(child: child),
           ],
         ),
       ),
@@ -121,7 +71,6 @@ class _NavBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.overscanH, vertical: 0),
       child: Row(
         children: [
-          // Logo
           Padding(
             padding: const EdgeInsets.only(right: 32),
             child: Text(
@@ -134,7 +83,6 @@ class _NavBar extends StatelessWidget {
               ),
             ),
           ),
-          // Nav items
           ...NavItem.values.map((item) => _NavItemWidget(
             item: item,
             selected: item == current,
@@ -145,8 +93,6 @@ class _NavBar extends StatelessWidget {
     );
   }
 }
-
-// ── NavItem widget ────────────────────────────────────────────────────────────
 
 class _NavItemWidget extends StatefulWidget {
   final NavItem item;
@@ -174,7 +120,8 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
       onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-             event.logicalKey == LogicalKeyboardKey.enter)) {
+             event.logicalKey == LogicalKeyboardKey.enter  ||
+             event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
           widget.onTap();
           return KeyEventResult.handled;
         }
@@ -197,11 +144,8 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                widget.item.icon,
-                size: 18,
-                color: active ? AppTheme.textPrimary : AppTheme.textSecondary,
-              ),
+              Icon(widget.item.icon, size: 18,
+                color: active ? AppTheme.textPrimary : AppTheme.textSecondary),
               const SizedBox(width: 8),
               Text(
                 widget.item.label,

@@ -138,7 +138,7 @@ class _DayContent extends StatelessWidget {
         crossAxisCount: 6,
         crossAxisSpacing: 12,
         mainAxisSpacing: 16,
-        childAspectRatio: 160 / 260,
+        childAspectRatio: 2 / 3.6,
       ),
       itemCount: entries.length,
       itemBuilder: (context, index) {

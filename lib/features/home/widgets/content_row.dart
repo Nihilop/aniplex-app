@@ -51,7 +51,7 @@ class _ContentRowState extends State<ContentRow> {
           ),
         ),
         SizedBox(
-          height: 294, // image(230) + spacing(8) + textArea(52) + focus ring margin(4)
+          height: 260, // 130 * 1.5 (poster) + 8 + 52 (texte) = 255
           child: ListView.separated(
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
@@ -60,10 +60,15 @@ class _ContentRowState extends State<ContentRow> {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final anime = widget.items[index];
-              return AnimeCard(
-                anime: anime,
-                autofocus: widget.autofocusFirst && index == 0,
-                onTap: () => widget.onTap?.call(anime),
+              // Largeur fixe nécessaire dans un ListView horizontal
+              // (LayoutBuilder reçoit sinon une contrainte infinie)
+              return SizedBox(
+                width: 130,
+                child: AnimeCard(
+                  anime: anime,
+                  autofocus: widget.autofocusFirst && index == 0,
+                  onTap: () => widget.onTap?.call(anime),
+                ),
               );
             },
           ),

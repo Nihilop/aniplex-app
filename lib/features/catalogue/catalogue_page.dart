@@ -120,7 +120,7 @@ class _CataloguePageState extends State<CataloguePage> {
                     crossAxisCount: 7,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 20,
-                    childAspectRatio: 160 / 294, // card width / totalHeight (230+8+52+4)
+                    childAspectRatio: 2 / 3.6, // poster 2:3 + zone texte
                   ),
                   itemCount: _items.length + (_loadingMore ? 1 : 0),
                   itemBuilder: (context, index) {
