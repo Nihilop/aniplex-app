@@ -40,7 +40,7 @@ android {
 
     defaultConfig {
         applicationId = "com.aniplex.aniplex_tv"
-        minSdk    = 21  // Android 5 — requis pour video_player HLS
+        minSdk = flutter.minSdkVersion  // Android 5 — requis pour video_player HLS
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
