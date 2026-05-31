@@ -4,13 +4,12 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/episode.dart';
 import '../../shared/widgets/tv_button.dart';
 
-// video_player ne supporte pas Windows/Linux/macOS.
-// Sur desktop on affiche un placeholder.
 bool get _isDesktop =>
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
@@ -26,11 +25,12 @@ class WatchPage extends StatefulWidget {
 
 class _WatchPageState extends State<WatchPage> {
   final _api = ApiClient.instance;
-  bool    _loading = true;
-  bool    _error   = false;
-  String? _errorMsg;
-  String? _hlsUrl;
+  bool     _loading  = true;
+  bool     _error    = false;
+  String?  _errorMsg;
+  String?  _hlsUrl;
   Episode? _episode;
+  int      _startPosition = 0;
 
   @override
   void initState() {
@@ -43,24 +43,18 @@ class _WatchPageState extends State<WatchPage> {
       final res = await _api.get<Map<String, dynamic>>(
         '/api/aniplex/watch/${widget.animeId}/${widget.episodeId}',
       );
-      final data = res.data!;
+      final data   = res.data!;
       final hlsUrl = (data['hlsUrl'] ?? data['streamUrl']) as String? ?? '';
       if (hlsUrl.isEmpty) {
-        setState(() { _error = true; _errorMsg = 'Aucun fichier disponible pour cet épisode.'; _loading = false; });
+        setState(() { _error = true; _errorMsg = 'Aucun fichier disponible.'; _loading = false; });
         return;
       }
-      final ep = Episode.fromJson(data['episode'] as Map<String, dynamic>);
-      setState(() { _hlsUrl = hlsUrl; _episode = ep; _loading = false; });
-
-      // Sur mobile/TV on lance le vrai player
-      if (!_isDesktop) _launchPlayer(hlsUrl, data['startPosition'] as int? ?? 0);
+      final ep    = Episode.fromJson(data['episode'] as Map<String, dynamic>);
+      final start = data['startPosition'] as int? ?? 0;
+      setState(() { _hlsUrl = hlsUrl; _episode = ep; _startPosition = start; _loading = false; });
     } catch (e) {
       setState(() { _error = true; _errorMsg = 'Impossible de charger la vidéo.'; _loading = false; });
     }
-  }
-
-  void _launchPlayer(String url, int startSeconds) {
-    // Délégué au widget _MobilePlayer via setState déjà fait
   }
 
   @override
@@ -82,7 +76,8 @@ class _WatchPageState extends State<WatchPage> {
               const SizedBox(height: 12),
               Text(_errorMsg ?? 'Erreur', style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 16),
-              TvButton(autofocus: true, onTap: () => context.pop(), outlined: true, child: const Text('Retour', style: TextStyle(color: Colors.white70))),
+              TvButton(autofocus: true, outlined: true, onTap: () => context.pop(),
+                  child: const Text('Retour', style: TextStyle(color: Colors.white70))),
             ],
           ),
         ),
@@ -90,32 +85,30 @@ class _WatchPageState extends State<WatchPage> {
     }
     if (_isDesktop) {
       return _DesktopPlayerStub(
-        hlsUrl: _hlsUrl!,
-        episode: _episode,
-        animeId: widget.animeId,
-        episodeId: widget.episodeId,
+        hlsUrl: _hlsUrl!, episode: _episode,
         onBack: () => context.pop(),
       );
     }
     return _MobilePlayer(
-      hlsUrl: _hlsUrl!,
-      episode: _episode,
-      animeId: widget.animeId,
-      episodeId: widget.episodeId,
-      onBack: () => context.pop(),
+      hlsUrl:       _hlsUrl!,
+      episode:      _episode,
+      animeId:      widget.animeId,
+      episodeId:    widget.episodeId,
+      startSeconds: _startPosition,
+      onBack:       () => context.pop(),
       onSaveProgress: _saveProgress,
     );
   }
 
-  Future<void> _saveProgress(int posSeconds, int durSeconds, {bool finished = false}) async {
+  Future<void> _saveProgress(int pos, int dur, {bool finished = false}) async {
     try {
       await _api.post<void>(
         '/api/aniplex/progress/${widget.episodeId}',
         data: {
-          'animeId': widget.animeId,
-          'positionSeconds': posSeconds,
-          'durationSeconds': durSeconds > 0 ? durSeconds : null,
-          'finished': finished,
+          'animeId':          widget.animeId,
+          'positionSeconds':  pos,
+          'durationSeconds':  dur > 0 ? dur : null,
+          'finished':         finished,
         },
       );
     } catch (_) {}
@@ -125,19 +118,11 @@ class _WatchPageState extends State<WatchPage> {
 // ── Desktop stub ──────────────────────────────────────────────────────────────
 
 class _DesktopPlayerStub extends StatefulWidget {
-  final String    hlsUrl;
-  final Episode?  episode;
-  final String    animeId;
-  final String    episodeId;
+  final String hlsUrl;
+  final Episode? episode;
   final VoidCallback onBack;
 
-  const _DesktopPlayerStub({
-    required this.hlsUrl,
-    required this.episode,
-    required this.animeId,
-    required this.episodeId,
-    required this.onBack,
-  });
+  const _DesktopPlayerStub({required this.hlsUrl, required this.episode, required this.onBack});
 
   @override
   State<_DesktopPlayerStub> createState() => _DesktopPlayerStubState();
@@ -167,20 +152,15 @@ class _DesktopPlayerStubState extends State<_DesktopPlayerStub> {
               const Icon(Icons.desktop_windows_rounded, color: AppTheme.textMuted, size: 48),
               const SizedBox(height: 16),
               Text(
-                ep != null
-                    ? 'Épisode ${ep.number ?? '?'}${ep.title != null ? ' — ${ep.title}' : ''}'
-                    : 'Lecture vidéo',
+                ep != null ? 'Ép. ${ep.number ?? '?'}${ep.title != null ? ' — ${ep.title}' : ''}' : 'Lecture vidéo',
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'video_player n\'est pas disponible sur Windows.\nCopie le lien HLS pour le lire dans VLC ou un lecteur externe.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.5),
-              ),
+              const Text('Copie le lien HLS pour le lire dans VLC.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
               const SizedBox(height: 24),
-              // HLS URL
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -190,38 +170,20 @@ class _DesktopPlayerStubState extends State<_DesktopPlayerStub> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        widget.hlsUrl,
+                    Expanded(child: Text(widget.hlsUrl,
                         style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, fontFamily: 'monospace'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                        maxLines: 2, overflow: TextOverflow.ellipsis)),
                     IconButton(
                       onPressed: _copyUrl,
-                      icon: Icon(
-                        _copied ? Icons.check_rounded : Icons.copy_rounded,
-                        color: _copied ? Colors.greenAccent : AppTheme.textSecondary,
-                        size: 18,
-                      ),
-                      tooltip: 'Copier',
+                      icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
+                          color: _copied ? Colors.greenAccent : AppTheme.textSecondary, size: 18),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              TvButton(
-                autofocus: true,
-                onTap: widget.onBack,
-                outlined: true,
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.arrow_back_rounded, size: 16, color: AppTheme.textSecondary),
-                  SizedBox(width: 6),
-                  Text('Retour', style: TextStyle(color: AppTheme.textSecondary)),
-                ]),
-              ),
+              TvButton(outlined: true, onTap: widget.onBack,
+                  child: const Text('Retour', style: TextStyle(color: AppTheme.textSecondary))),
             ],
           ),
         ),
@@ -230,13 +192,14 @@ class _DesktopPlayerStubState extends State<_DesktopPlayerStub> {
   }
 }
 
-// ── Mobile/TV player (Android uniquement) ────────────────────────────────────
+// ── Mobile/TV player ──────────────────────────────────────────────────────────
 
 class _MobilePlayer extends StatefulWidget {
   final String    hlsUrl;
   final Episode?  episode;
   final String    animeId;
   final String    episodeId;
+  final int       startSeconds;
   final VoidCallback onBack;
   final Future<void> Function(int pos, int dur, {bool finished}) onSaveProgress;
 
@@ -245,6 +208,7 @@ class _MobilePlayer extends StatefulWidget {
     required this.episode,
     required this.animeId,
     required this.episodeId,
+    required this.startSeconds,
     required this.onBack,
     required this.onSaveProgress,
   });
@@ -254,118 +218,131 @@ class _MobilePlayer extends StatefulWidget {
 }
 
 class _MobilePlayerState extends State<_MobilePlayer> {
-  // Import différé — uniquement instancié sur Android
-  dynamic _controller; // VideoPlayerController
+  late VideoPlayerController _controller;
+  bool   _initialized  = false;
   bool   _showControls = true;
+  bool   _error        = false;
   Timer? _hideTimer;
   Timer? _saveTimer;
-  bool   _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _init();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _initPlayer();
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     _saveTimer?.cancel();
-    (_controller as dynamic)?.dispose();
+    _controller.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
-  Future<void> _init() async {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Lazy import via reflection-like approach — on Android video_player est présent
+  Future<void> _initPlayer() async {
     try {
-      final vp = await _createController(widget.hlsUrl);
-      _controller = vp;
-      await (vp as dynamic).initialize();
-      (vp as dynamic).addListener(_onEvent);
-      await (vp as dynamic).play();
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.hlsUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+      );
+      await _controller.initialize();
+      _controller.addListener(_onPlayerEvent);
+
+      // Seek to saved position
+      if (widget.startSeconds > 0) {
+        await _controller.seekTo(Duration(seconds: widget.startSeconds));
+      }
+      await _controller.play();
+
       if (mounted) setState(() => _initialized = true);
       _resetHideTimer();
       _startSaveTimer();
     } catch (e) {
-      // Fallback — ne devrait pas arriver sur Android
+      if (mounted) setState(() => _error = true);
     }
   }
 
-  // Crée un VideoPlayerController — si le package n'est pas là, throw.
-  Future<dynamic> _createController(String url) async {
-    // On passe par un import dynamique pour éviter l'erreur compile sur desktop.
-    // Ce code n'est exécuté que sur Android où video_player est disponible.
-    throw UnimplementedError('video_player not available on this platform');
-  }
-
-  void _onEvent() {
+  void _onPlayerEvent() {
     if (!mounted) return;
     setState(() {});
-    final value = (_controller as dynamic).value;
-    if (value?.position != null && value?.duration != null) {
-      if ((value.position as Duration) >= (value.duration as Duration) - const Duration(seconds: 2)) {
-        widget.onSaveProgress(
-          (value.position as Duration).inSeconds,
-          (value.duration as Duration).inSeconds,
-          finished: true,
-        );
-      }
+    final value = _controller.value;
+    if (value.duration.inSeconds > 0 &&
+        value.position >= value.duration - const Duration(seconds: 2)) {
+      widget.onSaveProgress(
+        value.position.inSeconds,
+        value.duration.inSeconds,
+        finished: true,
+      );
     }
   }
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
-    setState(() => _showControls = true);
+    if (mounted) setState(() => _showControls = true);
     _hideTimer = Timer(const Duration(seconds: 4), () {
       if (mounted) setState(() => _showControls = false);
     });
   }
 
   void _startSaveTimer() {
-    _saveTimer?.cancel();
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      final value = (_controller as dynamic)?.value;
-      if (value != null) {
+      final value = _controller.value;
+      if (value.isInitialized) {
         widget.onSaveProgress(
-          (value.position as Duration).inSeconds,
-          (value.duration as Duration).inSeconds,
+          value.position.inSeconds,
+          value.duration.inSeconds,
         );
       }
     });
+  }
+
+  void _togglePlay() {
+    _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    _resetHideTimer();
+  }
+
+  void _seek(Duration delta) {
+    final value = _controller.value;
+    final newPos = value.position + delta;
+    final clamped = newPos < Duration.zero ? Duration.zero
+        : newPos > value.duration ? value.duration : newPos;
+    _controller.seekTo(clamped);
+    _resetHideTimer();
   }
 
   KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     _resetHideTimer();
     final key = event.logicalKey;
-    final c = _controller as dynamic;
-    final pos  = c?.value?.position  as Duration? ?? Duration.zero;
-    final dur  = c?.value?.duration  as Duration? ?? Duration.zero;
-    Duration clamp(Duration v) => v < Duration.zero ? Duration.zero : (v > dur ? dur : v);
 
-    if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.mediaPlayPause) {
-      c?.value?.isPlaying == true ? c?.pause() : c?.play();
+    if (key == LogicalKeyboardKey.select     ||
+        key == LogicalKeyboardKey.enter      ||
+        key == LogicalKeyboardKey.mediaPlayPause) {
+      _togglePlay();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.mediaFastForward) {
-      c?.seekTo(clamp(pos + const Duration(seconds: 10)));
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.mediaFastForward) {
+      _seek(const Duration(seconds: 10));
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.mediaRewind) {
-      c?.seekTo(clamp(pos - const Duration(seconds: 10)));
+    if (key == LogicalKeyboardKey.arrowLeft  ||
+        key == LogicalKeyboardKey.mediaRewind) {
+      _seek(const Duration(seconds: -10));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowUp) {
-      c?.seekTo(clamp(pos + const Duration(seconds: 60)));
+      _seek(const Duration(seconds: 60));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowDown) {
-      c?.seekTo(clamp(pos - const Duration(seconds: 60)));
+      _seek(const Duration(seconds: -60));
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.goBack || key == LogicalKeyboardKey.escape) {
+    if (key == LogicalKeyboardKey.goBack     ||
+        key == LogicalKeyboardKey.escape) {
       widget.onBack();
       return KeyEventResult.handled;
     }
@@ -374,24 +351,154 @@ class _MobilePlayerState extends State<_MobilePlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (_error) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+              const SizedBox(height: 12),
+              const Text('Impossible de lire la vidéo.', style: TextStyle(color: Colors.white)),
+              const SizedBox(height: 16),
+              TvButton(autofocus: true, outlined: true, onTap: widget.onBack,
+                  child: const Text('Retour', style: TextStyle(color: Colors.white70))),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (!_initialized) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
+
+    final value    = _controller.value;
+    final duration = value.duration;
+    final position = value.position;
+    final progress = duration.inMilliseconds > 0
+        ? position.inMilliseconds / duration.inMilliseconds
+        : 0.0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Focus(
         autofocus: true,
         onKeyEvent: _handleKey,
-        child: const Center(
-          child: Text(
-            'Lecture en cours…',
-            style: TextStyle(color: Colors.white54),
+        child: GestureDetector(
+          onTap: _togglePlay,
+          child: Stack(
+            children: [
+              // ── Video ──────────────────────────────────────────────
+              Center(
+                child: AspectRatio(
+                  aspectRatio: value.aspectRatio,
+                  child: VideoPlayer(_controller),
+                ),
+              ),
+
+              // ── Controls overlay ───────────────────────────────────
+              AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x99000000), Colors.transparent, Color(0xCC000000)],
+                      stops: [0.0, 0.4, 1.0],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Top bar
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: widget.onBack,
+                              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+                            ),
+                            const SizedBox(width: 12),
+                            if (widget.episode != null)
+                              Expanded(
+                                child: Text(
+                                  'Ép. ${widget.episode!.number ?? '?'}'
+                                  '${widget.episode!.title != null ? ' — ${widget.episode!.title}' : ''}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // Bottom bar
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                        child: Column(
+                          children: [
+                            // Progress bar
+                            LinearProgressIndicator(
+                              value: progress.clamp(0.0, 1.0),
+                              backgroundColor: Colors.white24,
+                              valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+                              minHeight: 3,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                // Play/Pause
+                                Icon(
+                                  value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 16),
+                                // Position / Duration
+                                Text(
+                                  '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                ),
+                                const Spacer(),
+                                // Hints
+                                const Text(
+                                  '◀◀ -10s   ▶▶ +10s   ↑ +1min',
+                                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Buffering indicator
+              if (value.isBuffering)
+                const Center(child: CircularProgressIndicator(color: Colors.white54, strokeWidth: 2)),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 }
