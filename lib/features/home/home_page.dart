@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/update/app_updater.dart';
+import '../../core/update/update_dialog.dart';
 import '../../shared/models/anime.dart';
 import '../../shared/widgets/tv_scaffold.dart';
 import 'widgets/content_row.dart';
@@ -28,6 +30,15 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _load();
+    // Check update après un court délai pour ne pas bloquer le chargement
+    Future.delayed(const Duration(seconds: 3), _checkUpdate);
+  }
+
+  Future<void> _checkUpdate() async {
+    final release = await AppUpdater.checkForUpdate();
+    if (release != null && mounted) {
+      await UpdateDialog.show(context, release);
+    }
   }
 
   Future<void> _load() async {

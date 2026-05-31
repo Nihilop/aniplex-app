@@ -55,11 +55,11 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --target-platform android-arm64
 
-      # ── Rename APK to include version tag ────────────────────────────────
-      - name: Rename APK
+      # ── Copie APK avec nom versionné (lisible) + garde app-release.apk (updater) ──
+      - name: Prepare APK assets
         run: |
-          VERSION="${GITHUB_REF_NAME}"   # e.g. v1.2.0
-          mv build/app/outputs/flutter-apk/app-release.apk \
+          VERSION="${GITHUB_REF_NAME}"
+          cp build/app/outputs/flutter-apk/app-release.apk \
              build/app/outputs/flutter-apk/aniplex-tv-${VERSION}.apk
 
       # ── Create GitHub Release ────────────────────────────────────────────
@@ -67,17 +67,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: "Aniplex TV ${{ github.ref_name }}"
-          body: |
-            ## Aniplex TV ${{ github.ref_name }}
-
-            ### Installation
-            1. Sur ta Android TV, active **Sources inconnues** dans les paramètres
-            2. Transfère le fichier APK via ADB ou une clé USB
-            3. Lance l'APK pour installer
-
-            ```bash
-            adb install aniplex-tv-${{ github.ref_name }}.apk
-            ```
-          files: build/app/outputs/flutter-apk/aniplex-tv-${{ github.ref_name }}.apk
+          generate_release_notes: true
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/aniplex-tv-${{ github.ref_name }}.apk
           draft: false
           prerelease: false

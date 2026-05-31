@@ -1,8 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// ── Keystore via key.properties (CI) ou debug sinon ─────────────────────────
+val keyPropertiesFile = rootProject.file("key.properties")
+val useReleaseKey = keyPropertiesFile.exists()
+val keyProperties = Properties().apply {
+    if (useReleaseKey) load(keyPropertiesFile.inputStream())
 }
 
 android {
@@ -19,12 +27,20 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    signingConfigs {
+        if (useReleaseKey) {
+            create("release") {
+                keyAlias     = keyProperties["keyAlias"]    as String
+                keyPassword  = keyProperties["keyPassword"] as String
+                storeFile    = file(keyProperties["storeFile"] as String)
+                storePassword = keyProperties["storePassword"] as String
+            }
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.aniplex.aniplex_tv"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21   // Android 5 min — requis pour video_player HLS
+        minSdk    = 21  // Android 5 — requis pour video_player HLS
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -32,9 +48,10 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (useReleaseKey)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 }
