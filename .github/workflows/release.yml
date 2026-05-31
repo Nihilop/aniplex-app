@@ -39,9 +39,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # ── Keystore (optional — sign if secrets are set) ─────────────────────
+      # ── Keystore ─────────────────────────────────────────────────────────────
       - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
           cat > android/key.properties <<EOF
