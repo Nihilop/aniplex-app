@@ -75,6 +75,17 @@ class ApiClient {
   Future<Response<T>> get<T>(String path, {Map<String, dynamic>? params}) =>
       _dio.get<T>(path, queryParameters: params);
 
+  /// GET renvoyant le corps brut en texte (ex: playlists VTT de sous-titres,
+  /// que Dio parserait en JSON par défaut → on force ResponseType.plain).
+  Future<String?> getText(String path, {Map<String, dynamic>? params}) async {
+    final res = await _dio.get<String>(
+      path,
+      queryParameters: params,
+      options: Options(responseType: ResponseType.plain),
+    );
+    return res.data;
+  }
+
   Future<Response<T>> post<T>(String path, {dynamic data}) =>
       _dio.post<T>(path, data: data);
 
