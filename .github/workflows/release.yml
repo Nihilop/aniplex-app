@@ -51,8 +51,20 @@ jobs:
           EOF
 
       # ── Build APK ────────────────────────────────────────────────────────
+      # La version embarquée dans l'APK est dérivée du TAG, pas du pubspec.
+      # Sans ça, un tag posé sans bump du pubspec produit un APK qui se
+      # déclare avec l'ancienne version → l'updater in-app propose la mise à
+      # jour en boucle alors qu'elle est déjà installée (bug v2.0.2 : tag
+      # v2.0.2 mais pubspec resté à 2.0.1+12).
+      # versionCode = MAJOR*10000 + MINOR*100 + PATCH (monotone avec semver,
+      # ex: 2.0.3 → 20003) — requis croissant par Android pour les updates.
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          BUILD_NUMBER=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "Building $VERSION (versionCode=$BUILD_NUMBER) from tag $GITHUB_REF_NAME"
+          flutter build apk --release --build-name="$VERSION" --build-number="$BUILD_NUMBER"
 
       # ── Copie APK avec nom versionné (lisible) + garde app-release.apk (updater) ──
       - name: Prepare APK assets
