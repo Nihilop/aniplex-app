@@ -4,755 +4,554 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+
 import '../../core/api/api_client.dart';
+import '../../core/api/catalog_api.dart';
+import '../../core/api/watch_api.dart';
+import '../../core/player/player_service.dart';
+import '../../core/player/subtitle_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/episode.dart';
-import '../../shared/widgets/tv_button.dart';
-import '../../shared/widgets/tv_nav.dart';
-import 'player_controls.dart';
+import '../../shared/models/media.dart';
+import '../../ui/focus/tv_focusable.dart';
+import '../../ui/focus/tv_keys.dart';
 
-bool get _isDesktop =>
-    !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+String _fmt(Duration d) {
+  final h = d.inHours, m = d.inMinutes % 60, s = d.inSeconds % 60;
+  final mm = m.toString().padLeft(2, '0'), ss = s.toString().padLeft(2, '0');
+  return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
+}
 
 class WatchPage extends StatefulWidget {
   final String animeId;
   final String episodeId;
-
   const WatchPage({super.key, required this.animeId, required this.episodeId});
-
   @override
   State<WatchPage> createState() => _WatchPageState();
 }
 
 class _WatchPageState extends State<WatchPage> {
-  final _api = ApiClient.instance;
+  final _watchApi = WatchApi();
+  final _catalog = CatalogApi();
 
-  bool     _loading  = true;
-  bool     _error    = false;
-  String?  _errorMsg;
-  String?  _hlsUrl;
-  Episode? _episode;
-  int      _startPosition = 0;
-  Map<String, String> _videoHeaders = {};
-
-  String? _prevEpisodeId;
-  String? _nextEpisodeId;
+  bool _loading = true;
+  String? _error;
+  WatchData? _wd;
+  List<Segment> _segments = const [];
+  Map<String, String> _headers = const {};
+  String? _prevId, _nextId;
+  int? _fileDuration;
 
   @override
   void initState() {
     super.initState();
-    _loadEpisode();
-    _loadAdjacent();
+    _load();
   }
 
-  /// Récupère la liste des épisodes lisibles (avec fichier) pour déterminer
-  /// l'épisode précédent / suivant. Indépendant du chargement de la vidéo :
-  /// si ça échoue, les boutons prev/next restent simplement masqués.
-  Future<void> _loadAdjacent() async {
+  Future<void> _load() async {
     try {
-      final res = await _api.get<Map<String, dynamic>>(
-        '/api/aniplex/anime/${widget.animeId}',
-      );
-      final data    = res.data!;
-      final eps     = ((data['episodes'] as List?) ?? []).cast<Map<String, dynamic>>();
-      final withFile = (((data['episodeIdsWithFile'] as List?) ?? []).cast<String>()).toSet();
-      // Uniquement les épisodes réellement lisibles, triés par numéro.
-      final playable = eps.where((e) => withFile.contains(e['id'])).toList()
-        ..sort((a, b) => ((a['number'] as num?) ?? 0).compareTo((b['number'] as num?) ?? 0));
-      final idx = playable.indexWhere((e) => e['id'] == widget.episodeId);
+      final wd = await _watchApi.watch(widget.animeId, widget.episodeId);
+      if (wd.hlsUrl == null || wd.hlsUrl!.isEmpty) {
+        setState(() { _error = 'Aucun fichier disponible.'; _loading = false; });
+        return;
+      }
+      final headers = await ApiClient.instance.getVideoHeaders();
+      final segs = await _watchApi.segments(widget.episodeId);
+      final fileDur = wd.sourceId != null ? await _watchApi.hlsDuration(wd.sourceId!) : null;
+      _computeAdjacent();
+      if (!mounted) return;
+      setState(() { _wd = wd; _headers = headers; _segments = segs; _fileDuration = fileDur; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Impossible de charger la vidéo.'; _loading = false; });
+    }
+  }
+
+  Future<void> _computeAdjacent() async {
+    try {
+      final d = await _catalog.animeDetail(widget.animeId);
+      final playable = d.episodes.where((e) => d.hasFile(e.id)).toList()
+        ..sort((a, b) => (a.number ?? 0).compareTo(b.number ?? 0));
+      final idx = playable.indexWhere((e) => e.id == widget.episodeId);
       if (idx < 0 || !mounted) return;
       setState(() {
-        _prevEpisodeId = idx > 0 ? playable[idx - 1]['id'] as String : null;
-        _nextEpisodeId = idx < playable.length - 1 ? playable[idx + 1]['id'] as String : null;
+        _prevId = idx > 0 ? playable[idx - 1].id : null;
+        _nextId = idx < playable.length - 1 ? playable[idx + 1].id : null;
       });
     } catch (_) {}
   }
 
-  void _goEpisode(String episodeId) {
-    // pushReplacement (pas go) : on remplace la route player courante en
-    // gardant Home/Détail dans la stack → un seul pop revient à la fiche.
-    context.pushReplacement('/watch/${widget.animeId}/$episodeId');
-  }
-
-  Future<void> _loadEpisode() async {
-    try {
-      final res = await _api.get<Map<String, dynamic>>(
-        '/api/aniplex/watch/${widget.animeId}/${widget.episodeId}',
-      );
-      final data = res.data!;
-      var hlsUrl = (data['hlsUrl'] ?? data['streamUrl']) as String? ?? '';
-      if (hlsUrl.isNotEmpty && !hlsUrl.startsWith('http')) {
-        hlsUrl = '${_api.baseUrl}$hlsUrl';
-      }
-      if (hlsUrl.isEmpty) {
-        setState(() { _error = true; _errorMsg = 'Aucun fichier disponible.'; _loading = false; });
-        return;
-      }
-      final ep      = Episode.fromJson(data['episode'] as Map<String, dynamic>);
-      final start   = data['startPosition'] as int? ?? 0;
-      final headers = await _api.getVideoHeaders();
-      setState(() {
-        _hlsUrl        = hlsUrl;
-        _episode       = ep;
-        _startPosition = start;
-        _videoHeaders  = headers;
-        _loading       = false;
-      });
-    } catch (e) {
-      setState(() { _error = true; _errorMsg = 'Impossible de charger la vidéo.'; _loading = false; });
-    }
-  }
+  void _go(String episodeId) => context.pushReplacement('/watch/${widget.animeId}/$episodeId');
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
-      );
+      return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator(color: AppTheme.foreground)));
     }
-    if (_error) {
+    if (_error != null) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
-              const SizedBox(height: 12),
-              Text(_errorMsg ?? 'Erreur', style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              TvButton(autofocus: true, outlined: true, onTap: () => context.pop(),
-                  child: const Text('Retour', style: TextStyle(color: Colors.white70))),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: Colors.white, fontSize: 22)),
+            const SizedBox(height: 20),
+            TvFocusable(autofocus: true, onSelect: () => context.pop(), builder: (_, f) => _pill('Retour', f)),
+          ]),
         ),
       );
     }
     if (_isDesktop) {
-      return _DesktopStub(hlsUrl: _hlsUrl!, episode: _episode, onBack: () => context.pop());
+      return _DesktopStub(url: _wd!.hlsUrl!, onBack: () => context.pop());
     }
     return _Player(
-      hlsUrl:         _hlsUrl!,
-      episode:        _episode,
-      animeId:        widget.animeId,
-      episodeId:      widget.episodeId,
-      startSeconds:   _startPosition,
-      headers:        _videoHeaders,
-      onBack:         () => context.pop(),
-      onSaveProgress: _saveProgress,
-      onPrevEpisode:  _prevEpisodeId == null ? null : () => _goEpisode(_prevEpisodeId!),
-      onNextEpisode:  _nextEpisodeId == null ? null : () => _goEpisode(_nextEpisodeId!),
+      wd: _wd!,
+      headers: _headers,
+      segments: _segments,
+      fileDurationSeconds: _fileDuration,
+      onBack: () => context.pop(),
+      onPrev: _prevId == null ? null : () => _go(_prevId!),
+      onNext: _nextId == null ? null : () => _go(_nextId!),
+      saveProgress: (pos, dur, finished) => _watchApi.saveProgress(
+        widget.episodeId, animeId: widget.animeId, positionSeconds: pos, durationSeconds: dur, finished: finished),
     );
   }
 
-  Future<void> _saveProgress(int pos, int dur, {bool finished = false}) async {
-    try {
-      await _api.post<void>(
-        '/api/aniplex/progress/${widget.episodeId}',
-        data: {
-          'animeId':         widget.animeId,
-          'positionSeconds': pos,
-          'durationSeconds': dur > 0 ? dur : null,
-          'finished':        finished,
-        },
-      );
-    } catch (_) {}
-  }
-}
-
-// ── Desktop stub ──────────────────────────────────────────────────────────────
-
-class _DesktopStub extends StatefulWidget {
-  final String hlsUrl;
-  final Episode? episode;
-  final VoidCallback onBack;
-
-  const _DesktopStub({required this.hlsUrl, required this.episode, required this.onBack});
-
-  @override
-  State<_DesktopStub> createState() => _DesktopStubState();
-}
-
-class _DesktopStubState extends State<_DesktopStub> {
-  bool _copied = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final ep = widget.episode;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.desktop_windows_rounded, color: AppTheme.textMuted, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                ep != null ? 'Ép. ${ep.number ?? '?'}${ep.title != null ? ' — ${ep.title}' : ''}' : 'Lecture vidéo',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface, borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.divider),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(widget.hlsUrl,
-                        style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, fontFamily: 'monospace'),
-                        maxLines: 2, overflow: TextOverflow.ellipsis)),
-                    IconButton(
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: widget.hlsUrl));
-                        setState(() => _copied = true);
-                        await Future.delayed(const Duration(seconds: 2));
-                        if (mounted) setState(() => _copied = false);
-                      },
-                      icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded,
-                          color: _copied ? Colors.greenAccent : AppTheme.textSecondary, size: 18),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              TvButton(outlined: true, onTap: widget.onBack,
-                  child: const Text('Retour', style: TextStyle(color: AppTheme.textSecondary))),
-            ],
-          ),
+  static Widget _pill(String label, bool focused) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+        decoration: BoxDecoration(
+          color: focused ? AppTheme.primary : AppTheme.materialLight16,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         ),
-      ),
-    );
-  }
+        child: Text(label, style: TextStyle(color: focused ? AppTheme.primaryForeground : AppTheme.foreground, fontSize: 22, fontWeight: FontWeight.w600)),
+      );
 }
 
-// ── Player Android TV ─────────────────────────────────────────────────────────
+// ── Lecteur ──────────────────────────────────────────────────────────────────
 
 class _Player extends StatefulWidget {
-  final String    hlsUrl;
-  final Episode?  episode;
-  final String    animeId;
-  final String    episodeId;
-  final int       startSeconds;
+  final WatchData wd;
   final Map<String, String> headers;
+  final List<Segment> segments;
+  final int? fileDurationSeconds;
   final VoidCallback onBack;
-  final Future<void> Function(int pos, int dur, {bool finished}) onSaveProgress;
-  final VoidCallback? onPrevEpisode;
-  final VoidCallback? onNextEpisode;
-
+  final VoidCallback? onPrev, onNext;
+  final Future<void> Function(int pos, int dur, bool finished) saveProgress;
   const _Player({
-    required this.hlsUrl,
-    required this.episode,
-    required this.animeId,
-    required this.episodeId,
-    required this.startSeconds,
+    required this.wd,
     required this.headers,
+    required this.segments,
     required this.onBack,
-    required this.onSaveProgress,
-    this.onPrevEpisode,
-    this.onNextEpisode,
+    required this.saveProgress,
+    this.fileDurationSeconds,
+    this.onPrev,
+    this.onNext,
   });
-
   @override
   State<_Player> createState() => _PlayerState();
 }
 
 class _PlayerState extends State<_Player> {
-  final _api = ApiClient.instance;
+  late final PlayerService _svc;
+  late final SubtitleController _subs;
+  final _seekFocus = FocusNode(debugLabel: 'seek');
 
-  late final Player          _player;
-  late final VideoController _videoCtrl;
-
-  final FocusNode _progressFocus = FocusNode(debugLabel: 'player.progress');
-
-  bool   _initialized  = false;
-  bool   _error        = false;
-  bool   _controlsVisible = true;
-  Timer? _hideTimer;
-  Timer? _saveTimer;
-  Timer? _seekTimer;
-  bool   _isPlaying    = false;
-
-  StreamSubscription<bool>?     _playingSub;
-  StreamSubscription<String>?   _errorSub;
-  StreamSubscription<Duration>? _cueSub;
-
-  // ── Sous-titres ────────────────────────────────────────────────────────────
-  String?         _sourceId;        // token opaque extrait de l'URL HLS
-  List<_SubTrack> _subTracks    = [];
-  int?            _activeSubIndex;
-  List<_SubCue>   _subCues      = [];
-  String?         _currentCueText;
+  bool _ready = false, _playing = false, _controls = true;
+  Duration _pos = Duration.zero, _dur = Duration.zero;
+  Timer? _hide, _save;
+  StreamSubscription? _sPos, _sPlay, _sDur, _sDone;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _player    = Player();
-    _videoCtrl = VideoController(_player);
+    _svc = PlayerService();
+    _subs = SubtitleController(_svc.player);
+    HardwareKeyboard.instance.addHandler(_onKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _seekFocus.requestFocus());
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _progressFocus.requestFocus();
-    });
+    _sPlay = _svc.playing.listen((p) { if (mounted) { setState(() => _playing = p); p ? _scheduleHide() : _reveal(); } });
+    _sPos = _svc.position.listen((p) { if (mounted) setState(() => _pos = p); });
+    _sDur = _svc.duration.listen((d) { if (mounted) setState(() => _dur = d); });
+    _sDone = _svc.completed.listen((c) { if (c && mounted) { _saveNow(finished: true); widget.onNext?.call(); } });
 
-    HardwareKeyboard.instance.addHandler(_onAnyKey);
+    _start();
+  }
 
-    _playingSub = _player.stream.playing.listen((p) {
-      if (!mounted) return;
-      _isPlaying = p;
-      if (p) { _scheduleHide(); }
-      else   { _hideTimer?.cancel(); if (!_controlsVisible) setState(() => _controlsVisible = true); }
-    });
-
-    _errorSub = _player.stream.error.listen((_) {
-      if (mounted) setState(() => _error = true);
-    });
-
-    // Affichage des sous-titres : on cherche la cue active à chaque tick de
-    // position et on met à jour l'overlay quand le texte change.
-    _cueSub = _player.stream.position.listen((pos) {
-      if (!mounted) return;
-      if (_subCues.isEmpty) {
-        if (_currentCueText != null) setState(() => _currentCueText = null);
-        return;
-      }
-      final cue = _subCues.cast<_SubCue?>().firstWhere(
-        (c) => pos >= c!.start && pos <= c.end,
-        orElse: () => null,
-      );
-      if (cue?.text != _currentCueText) {
-        setState(() => _currentCueText = cue?.text);
-      }
-    });
-
-    _initPlayback();
+  Future<void> _start() async {
+    await _svc.open(widget.wd.hlsUrl!, headers: widget.headers, startSeconds: widget.wd.startPosition);
+    if (mounted) setState(() => _ready = true);
+    _scheduleHide();
+    _save = Timer.periodic(const Duration(seconds: 10), (_) => _saveNow());
+    _subs.load(episodeId: widget.wd.episode.id, sourceId: widget.wd.sourceId);
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onAnyKey);
-    _hideTimer?.cancel();
-    _saveTimer?.cancel();
-    _seekTimer?.cancel();
-    _playingSub?.cancel();
-    _errorSub?.cancel();
-    _cueSub?.cancel();
-    _progressFocus.dispose();
-    _player.dispose();
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    _hide?.cancel(); _save?.cancel();
+    _sPos?.cancel(); _sPlay?.cancel(); _sDur?.cancel(); _sDone?.cancel();
+    _seekFocus.dispose();
+    _svc.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
-  Future<void> _initPlayback() async {
-    await _player.open(Media(widget.hlsUrl, httpHeaders: widget.headers));
+  bool _onKey(KeyEvent e) { if (e is KeyDownEvent && mounted) _reveal(); return false; }
 
-    if (widget.startSeconds > 5) {
-      _seekToPosition(Duration(seconds: widget.startSeconds));
-    }
-
-    if (mounted) setState(() => _initialized = true);
-    _scheduleHide();
-    _saveTimer = Timer.periodic(const Duration(seconds: 10), (_) => _saveProgress());
-
-    _sourceId = _extractSourceId(widget.hlsUrl);
-    _fetchSubtitles();
+  void _reveal() { if (!_controls) setState(() => _controls = true); _scheduleHide(); }
+  void _scheduleHide() {
+    _hide?.cancel();
+    if (!_playing) return;
+    _hide = Timer(const Duration(seconds: 4), () { if (mounted && _playing) setState(() => _controls = false); });
   }
 
-  // ── Sous-titres ──────────────────────────────────────────────────────────
-
-  /// Extrait le token opaque de source depuis l'URL HLS render-engine
-  /// (`…/render-engine/hls/<source>/index.m3u8`). C'est ce token que les
-  /// endpoints subs/audio attendent.
-  String? _extractSourceId(String url) {
-    final m = RegExp(r'/render-engine/hls/([^/]+)/').firstMatch(url);
-    return m?.group(1);
+  Future<void> _saveNow({bool finished = false}) async {
+    final pos = _svc.currentPosition.inSeconds, dur = _svc.totalDuration.inSeconds;
+    if (pos <= 0) return;
+    await widget.saveProgress(pos, dur, finished || (dur > 0 && pos >= dur - 5));
   }
 
-  bool _isFrench(_SubTrack t) {
-    final lang  = (t.language ?? '').toLowerCase();
-    final title = (t.title    ?? '').toLowerCase();
-    return ['fr', 'fre', 'fra', 'french', 'français', 'francais']
-        .any((k) => lang == k || title.contains(k));
+  /// Durée effective : celle du player si connue, sinon celle de l'épisode (API).
+  /// Les flux HLS render-engine ne rapportent pas toujours une durée immédiate.
+  Duration get _effectiveDur {
+    if (_dur.inSeconds > 0) return _dur;
+    final f = widget.fileDurationSeconds ?? widget.wd.episode.duration;
+    return f != null && f > 0 ? Duration(seconds: f) : Duration.zero;
   }
 
-  /// Récupère la liste des pistes de sous-titres puis active le français par
-  /// défaut s'il existe. Silencieux en cas d'échec (fichier non-MKV, ffprobe
-  /// absent, etc.) → le bouton sous-titres reste simplement masqué.
-  Future<void> _fetchSubtitles() async {
-    final src = _sourceId;
-    if (src == null) return;
-    try {
-      final res  = await _api.get<Map<String, dynamic>>('/api/aniplex/render-engine/subs/$src');
-      final data = res.data;
-      if (data == null || data['success'] != true) return;
-      final list = (data['data'] as List?) ?? [];
-      final tracks = list.map((e) {
-        final t = e as Map<String, dynamic>;
-        return _SubTrack(
-          index:    (t['index'] as num).toInt(),
-          language: t['language'] as String?,
-          title:    t['title']    as String?,
-        );
-      }).toList();
-      if (!mounted) return;
-      setState(() => _subTracks = tracks);
-
-      final fr = tracks.cast<_SubTrack?>().firstWhere(
-        (t) => _isFrench(t!),
-        orElse: () => null,
-      );
-      if (fr != null) _selectSubtitle(fr.index);
-    } catch (_) {}
-  }
-
-  /// Active une piste (ou la désactive si `index == null`). Télécharge et parse
-  /// le WebVTT — media_kit ne sait pas extraire les pistes embarquées d'un MKV
-  /// à la volée, donc on rend les sous-titres via notre propre overlay.
-  Future<void> _selectSubtitle(int? index) async {
-    setState(() {
-      _activeSubIndex = index;
-      _subCues        = [];
-      _currentCueText = null;
-    });
-    if (index == null || _sourceId == null) return;
-    try {
-      final vtt  = await _api.getText('/api/aniplex/render-engine/subs/$_sourceId/$index');
-      final cues = _parseVtt(vtt ?? '');
-      if (mounted) setState(() => _subCues = cues);
-    } catch (_) {}
+  void _seekBy(int s) {
+    final max = _effectiveDur.inSeconds;
+    _svc.seek(Duration(seconds: (_pos.inSeconds + s).clamp(0, max > 0 ? max : _pos.inSeconds + s)));
   }
 
   void _showSubtitlePicker() {
+    if (!_subs.hasSubtitles) return;
     showDialog<void>(
       context: context,
       barrierColor: Colors.black54,
       builder: (_) => _SubtitlePicker(
-        tracks:      _subTracks,
-        activeIndex: _activeSubIndex,
-        onSelect:    (i) { Navigator.pop(context); _selectSubtitle(i); },
+        options: _subs.options,
+        active: _subs.active,
+        onSelect: (o) async {
+          Navigator.of(context).pop();
+          await _subs.select(o);
+          if (mounted) setState(() {});
+        },
       ),
     );
   }
 
-  // ── Parser WebVTT ──────────────────────────────────────────────────────────
+  Future<void> _exit() async { _save?.cancel(); await _saveNow(); if (mounted) widget.onBack(); }
 
-  static final _vttTagRe = RegExp(r'<[^>]*>');
-
-  List<_SubCue> _parseVtt(String raw) {
-    final cues  = <_SubCue>[];
-    final lines = raw.replaceAll('\r\n', '\n').split('\n');
-    int i = 0;
-    while (i < lines.length) {
-      final line = lines[i].trim();
-      if (line.contains('-->')) {
-        final arrow  = line.indexOf('-->');
-        final start  = _parseVttTime(line.substring(0, arrow).trim());
-        final endRaw = line.substring(arrow + 3).trim().split(' ').first;
-        final end    = _parseVttTime(endRaw);
-        i++;
-        final textLines = <String>[];
-        while (i < lines.length && lines[i].trim().isNotEmpty) {
-          textLines.add(lines[i].trim().replaceAll(_vttTagRe, ''));
-          i++;
-        }
-        if (start != null && end != null && textLines.isNotEmpty) {
-          cues.add(_SubCue(start: start, end: end, text: textLines.join('\n')));
-        }
-      } else {
-        i++;
-      }
+  /// Segment (intro/outro) couvrant la position courante, s'il existe.
+  Segment? get _activeSegment {
+    final ms = _pos.inMilliseconds;
+    for (final s in widget.segments) {
+      if ((s.kind == 'intro' || s.kind == 'outro') && ms >= s.startMs && ms < s.endMs - 500) return s;
     }
-    return cues;
-  }
-
-  Duration? _parseVttTime(String s) {
-    try {
-      final parts = s.split(':');
-      if (parts.length == 3) {
-        final h     = int.parse(parts[0]);
-        final m     = int.parse(parts[1]);
-        final secMs = parts[2].split('.');
-        final sec   = int.parse(secMs[0]);
-        final ms    = int.parse((secMs.length > 1 ? secMs[1] : '0').padRight(3, '0').substring(0, 3));
-        return Duration(hours: h, minutes: m, seconds: sec, milliseconds: ms);
-      } else if (parts.length == 2) {
-        final m     = int.parse(parts[0]);
-        final secMs = parts[1].split('.');
-        final sec   = int.parse(secMs[0]);
-        final ms    = int.parse((secMs.length > 1 ? secMs[1] : '0').padRight(3, '0').substring(0, 3));
-        return Duration(minutes: m, seconds: sec, milliseconds: ms);
-      }
-    } catch (_) {}
     return null;
   }
 
-  void _seekToPosition(Duration target) {
-    int attempts = 0;
-    _seekTimer?.cancel();
-    _seekTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
-      attempts++;
-      final dur = _player.state.duration;
-      if (dur.inSeconds > 0) {
-        _player.seek(target);
-        timer.cancel();
-        _seekTimer = null;
-      } else if (attempts > 30) {
-        timer.cancel();
-        _seekTimer = null;
-      }
-    });
-  }
-
-  bool _onAnyKey(KeyEvent event) {
-    if (event is KeyDownEvent && mounted) _revealControls();
-    return false;
-  }
-
-  void _revealControls() {
-    if (!_controlsVisible) setState(() => _controlsVisible = true);
-    _scheduleHide();
-  }
-
-  void _scheduleHide() {
-    _hideTimer?.cancel();
-    if (!_isPlaying) return;
-    _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _isPlaying) setState(() => _controlsVisible = false);
-    });
-  }
-
-  Future<void> _saveProgress() async {
-    final pos = _player.state.position.inSeconds;
-    final dur = _player.state.duration.inSeconds;
-    if (pos <= 0) return;
-    final finished = dur > 0 && pos >= dur - 5;
-    await widget.onSaveProgress(pos, dur, finished: finished);
-  }
-
-  Future<void> _exit() async {
-    _saveTimer?.cancel();
-    _hideTimer?.cancel();
-    _seekTimer?.cancel();
-    try { await _saveProgress(); } catch (_) {}
-    if (mounted) context.pop();
-  }
-
-  KeyEventResult _handleKey(FocusNode _, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey == LogicalKeyboardKey.goBack ||
-        event.logicalKey == LogicalKeyboardKey.escape) {
-      _exit();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_error) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
-              const SizedBox(height: 12),
-              const Text('Impossible de lire la vidéo.', style: TextStyle(color: Colors.white)),
-              const SizedBox(height: 16),
-              TvButton(autofocus: true, outlined: true, onTap: _exit,
-                  child: const Text('Retour', style: TextStyle(color: Colors.white70))),
-            ],
-          ),
-        ),
-      );
+    if (!_ready) {
+      return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator(color: Colors.white)));
     }
-
-    if (!_initialized) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
-      );
-    }
+    final ep = widget.wd.episode;
+    final seg = _activeSegment;
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) { if (!didPop) _exit(); },
-      child: Focus(
-        canRequestFocus: false,
-        onKeyEvent: _handleKey,
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              // Vidéo
-              Center(
-                child: Video(
-                  controller: _videoCtrl,
-                  controls:   NoVideoControls,
-                ),
+      onPopInvokedWithResult: (did, _) { if (!did) _exit(); },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(fit: StackFit.expand, children: [
+          // Vidéo + sous-titres rendus par la SubtitleView de media_kit (VTT).
+          Video(
+            controller: _svc.controller,
+            controls: NoVideoControls,
+            subtitleViewConfiguration: const SubtitleViewConfiguration(
+              // Style Netflix : texte blanc + ombre douce, sans rectangle de fond.
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 44,
+                fontWeight: FontWeight.w600,
+                backgroundColor: Color(0x00000000),
+                height: 1.3,
+                shadows: [
+                  Shadow(offset: Offset(0, 2), blurRadius: 10, color: Color(0xE6000000)),
+                  Shadow(blurRadius: 4, color: Color(0xB3000000)),
+                ],
               ),
-              // Overlay sous-titres — remonte au-dessus de la barre quand les
-              // contrôles sont visibles, redescend près du bord sinon.
-              if (_currentCueText != null)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 250),
-                  curve:    Curves.easeOut,
-                  bottom:   _controlsVisible ? 150 : 32,
-                  left:     32,
-                  right:    32,
-                  child:    _SubtitleOverlay(text: _currentCueText!),
-                ),
-              // Contrôles
-              AnimatedOpacity(
-                opacity:  _controlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: PlayerControls(
-                  player:            _player,
-                  progressFocusNode: _progressFocus,
-                  hasSubtitles:      _subTracks.isNotEmpty,
-                  onSubtitlesTap:    _showSubtitlePicker,
-                  onPrevEpisode:     widget.onPrevEpisode == null
-                      ? null
-                      : () { _saveProgress(); widget.onPrevEpisode!(); },
-                  onNextEpisode:     widget.onNextEpisode == null
-                      ? null
-                      : () { _saveProgress(); widget.onNextEpisode!(); },
-                ),
-              ),
-            ],
+              padding: EdgeInsets.fromLTRB(80, 0, 80, 60),
+            ),
           ),
-        ),
+
+          // Overlay pause
+          if (!_playing)
+            Center(
+              child: Container(
+                width: 168, height: 168,
+                decoration: const BoxDecoration(color: Color(0x4D000000), shape: BoxShape.circle),
+                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 90),
+              ),
+            ),
+
+          // Haut
+          _TopFade(visible: _controls, title: ep.displayTitle),
+
+          // Bouton Passer (intro/outro)
+          if (seg != null)
+            Positioned(
+              right: 96, bottom: 220,
+              child: TvFocusable(
+                onSelect: () => _svc.seek(Duration(milliseconds: seg.endMs)),
+                builder: (_, f) => _WatchPageState._pill(seg.kind == 'intro' ? 'Passer l’intro' : 'Passer l’outro', f),
+              ),
+            ),
+
+          // Bas : barre + boutons
+          _BottomFade(
+            visible: _controls,
+            pos: _pos, dur: _effectiveDur,
+            seekFocus: _seekFocus,
+            playing: _playing,
+            onSeekKey: (k) {
+              if (TvKeys.isLeft(k)) { _seekBy(-10); return true; }
+              if (TvKeys.isRight(k)) { _seekBy(10); return true; }
+              return false;
+            },
+            onPlayPause: _svc.playOrPause,
+            onBack10: () => _seekBy(-10),
+            onFwd10: () => _seekBy(10),
+            subsLabel: _subs.activeLabel,
+            onSubs: _showSubtitlePicker,
+            onNext: widget.onNext == null ? null : () { _saveNow(); widget.onNext!(); },
+          ),
+        ]),
       ),
     );
   }
 }
 
-// ── Modèles sous-titres ─────────────────────────────────────────────────────
-
-class _SubTrack {
-  final int     index;
-  final String? language;
-  final String? title;
-  const _SubTrack({required this.index, this.language, this.title});
-
-  String get label {
-    if (title != null && title!.isNotEmpty)       return title!;
-    if (language != null && language!.isNotEmpty) return language!.toUpperCase();
-    return 'Piste ${index + 1}';
-  }
-}
-
-class _SubCue {
-  final Duration start;
-  final Duration end;
-  final String   text;
-  const _SubCue({required this.start, required this.end, required this.text});
-}
-
-// ── Overlay sous-titres ─────────────────────────────────────────────────────
-
-class _SubtitleOverlay extends StatelessWidget {
-  const _SubtitleOverlay({required this.text});
-  final String text;
-
-  // Contour noir simulé par 8 ombres directionnelles + 1 halo flou — lisible
-  // sur n'importe quel fond. Porté depuis Animax.
-  static const _shadow = [
-    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
-    Shadow(offset: Offset( 1.5, -1.5), color: Colors.black),
-    Shadow(offset: Offset(-1.5,  1.5), color: Colors.black),
-    Shadow(offset: Offset( 1.5,  1.5), color: Colors.black),
-    Shadow(offset: Offset(-2,  0), color: Colors.black),
-    Shadow(offset: Offset( 2,  0), color: Colors.black),
-    Shadow(offset: Offset( 0, -2), color: Colors.black),
-    Shadow(offset: Offset( 0,  2), color: Colors.black),
-    Shadow(blurRadius: 8, color: Color(0xCC000000)),
-  ];
-
+// ── Haut ─────────────────────────────────────────────────────────────────────
+class _TopFade extends StatelessWidget {
+  final bool visible;
+  final String title;
+  const _TopFade({required this.visible, required this.title});
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color:      Colors.white,
-          fontSize:   22,
-          height:     1.4,
-          fontWeight: FontWeight.w600,
-          shadows:    _shadow,
+    final now = DateTime.now();
+    final clock = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    return AnimatedOpacity(
+      opacity: visible ? 1 : 0,
+      duration: AppTheme.motion,
+      child: Container(
+        height: 260,
+        padding: const EdgeInsets.fromLTRB(96, 64, 96, 0),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xB3000000), Color(0x00000000)]),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800))),
+            Text(clock, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w500)),
+          ],
         ),
       ),
     );
   }
 }
 
-// ── Picker sous-titres ──────────────────────────────────────────────────────
-
-class _SubtitlePicker extends StatelessWidget {
-  const _SubtitlePicker({
-    required this.tracks,
-    required this.activeIndex,
-    required this.onSelect,
+// ── Bas ──────────────────────────────────────────────────────────────────────
+class _BottomFade extends StatelessWidget {
+  final bool visible, playing;
+  final Duration pos, dur;
+  final FocusNode seekFocus;
+  final bool Function(LogicalKeyboardKey) onSeekKey;
+  final VoidCallback onPlayPause, onBack10, onFwd10, onSubs;
+  final VoidCallback? onNext;
+  final String subsLabel;
+  const _BottomFade({
+    required this.visible,
+    required this.playing,
+    required this.pos,
+    required this.dur,
+    required this.seekFocus,
+    required this.onSeekKey,
+    required this.onPlayPause,
+    required this.onBack10,
+    required this.onFwd10,
+    required this.onSubs,
+    required this.subsLabel,
+    this.onNext,
   });
-  final List<_SubTrack>     tracks;
-  final int?                activeIndex;
-  final void Function(int?) onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final all = <(String, int?)>[
-      ('Désactivés', null),
-      ...tracks.map((t) => (t.label, t.index as int?)),
-    ];
+    final frac = dur.inMilliseconds == 0 ? 0.0 : (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: AppTheme.motion,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(96, 120, 96, 64),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                colors: [Color(0xE6000000), Color(0x99000000), Color(0x00000000)], stops: [0.0, 0.45, 1.0]),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Barre de progression focusable
+            TvFocusable(
+              focusNode: seekFocus,
+              onSelect: onPlayPause,
+              onKeyEvent: (node, e) {
+                if (e is KeyDownEvent || e is KeyRepeatEvent) {
+                  if (onSeekKey(e.logicalKey)) return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              builder: (context, focused) {
+                return Column(children: [
+                  // Barre Lumen : grossit au focus + halo, remplissage proportionnel.
+                  SizedBox(
+                    height: 24,
+                    child: Center(
+                      child: AnimatedContainer(
+                        duration: AppTheme.motion,
+                        height: focused ? 16 : 8,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: focused ? const [BoxShadow(color: Color(0x26FFFFFF), spreadRadius: 4)] : null,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(children: [
+                          const Positioned.fill(child: ColoredBox(color: Color(0x4DFFFFFF))),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: frac, heightFactor: 1,
+                              child: const ColoredBox(color: AppTheme.foreground),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Text(_fmt(pos), style: const TextStyle(color: Colors.white, fontSize: 23, fontFeatures: [FontFeature.tabularFigures()])),
+                    const Spacer(),
+                    Text(dur.inSeconds > 0 ? _fmt(dur) : '--:--', style: const TextStyle(color: Colors.white70, fontSize: 23, fontFeatures: [FontFeature.tabularFigures()])),
+                  ]),
+                ]);
+              },
+            ),
+            const SizedBox(height: 18),
+            // Boutons
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _IconBtn(icon: Icons.replay_10_rounded, onTap: onBack10),
+              const SizedBox(width: 18),
+              _IconBtn(icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded, onTap: onPlayPause, big: true),
+              const SizedBox(width: 18),
+              _IconBtn(icon: Icons.forward_10_rounded, onTap: onFwd10),
+              const SizedBox(width: 18),
+              _LabelBtn(label: 'Sous-titres : $subsLabel', onTap: onSubs),
+              if (onNext != null) ...[
+                const SizedBox(width: 18),
+                _LabelBtn(label: 'Épisode suivant ›', onTap: onNext!),
+              ],
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+}
 
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool big;
+  const _IconBtn({required this.icon, required this.onTap, this.big = false});
+  @override
+  Widget build(BuildContext context) {
+    final size = big ? 76.0 : 68.0;
+    return TvFocusable(
+      onSelect: onTap,
+      builder: (_, f) => AnimatedScale(
+        scale: f ? 1.1 : 1.0, duration: AppTheme.motion, curve: AppTheme.ease,
+        child: Container(
+          width: size, height: size,
+          decoration: BoxDecoration(color: f ? AppTheme.primary : AppTheme.materialLight16, shape: BoxShape.circle),
+          child: Icon(icon, color: f ? AppTheme.primaryForeground : AppTheme.foreground, size: big ? 44 : 36),
+        ),
+      ),
+    );
+  }
+}
+
+class _LabelBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _LabelBtn({required this.label, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return TvFocusable(
+      onSelect: onTap,
+      builder: (_, f) => AnimatedScale(
+        scale: f ? 1.08 : 1.0, duration: AppTheme.motion, curve: AppTheme.ease,
+        child: Container(
+          height: 68,
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: f ? AppTheme.primary : AppTheme.materialLight16, borderRadius: BorderRadius.circular(AppTheme.radiusPill)),
+          child: Text(label, style: TextStyle(color: f ? AppTheme.primaryForeground : AppTheme.foreground, fontSize: 24, fontWeight: FontWeight.w600)),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sélecteur de sous-titres ─────────────────────────────────────────────────
+class _SubtitlePicker extends StatelessWidget {
+  final List<SubtitleOption> options;
+  final SubtitleOption active;
+  final void Function(SubtitleOption) onSelect;
+  const _SubtitlePicker({required this.options, required this.active, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerRight,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 280,
-          margin: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+          width: 460,
+          margin: const EdgeInsets.all(48),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xF21A1A1E),
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: AppTheme.borderFaint),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-                child: Text(
-                  'Sous-titres',
-                  style: TextStyle(
-                    color:         Colors.white,
-                    fontSize:      15,
-                    fontWeight:    FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                padding: EdgeInsets.fromLTRB(28, 8, 28, 16),
+                child: Text('Sous-titres', style: TextStyle(color: AppTheme.foreground, fontSize: 30, fontWeight: FontWeight.w700)),
               ),
-              const Divider(color: Colors.white12, height: 1),
-              ...all.indexed.map((entry) {
-                final (i, item)    = entry;
-                final (label, idx) = item;
-                return _SubOption(
-                  label:     label,
-                  selected:  idx == activeIndex,
-                  autofocus: i == 0,
-                  onTap:     () => onSelect(idx),
-                );
-              }),
-              const SizedBox(height: 8),
+              for (final o in options)
+                _SubOption(label: o.label, selected: o == active, autofocus: o == active, onTap: () => onSelect(o)),
             ],
           ),
         ),
@@ -761,58 +560,54 @@ class _SubtitlePicker extends StatelessWidget {
   }
 }
 
-class _SubOption extends StatefulWidget {
-  const _SubOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.autofocus = false,
-  });
-  final String       label;
-  final bool         selected;
+class _SubOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool autofocus;
   final VoidCallback onTap;
-  final bool         autofocus;
-
-  @override
-  State<_SubOption> createState() => _SubOptionState();
-}
-
-class _SubOptionState extends State<_SubOption> {
-  bool _focused = false;
+  const _SubOption({required this.label, required this.selected, required this.autofocus, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: widget.autofocus,
-      onFocusChange: (f) => setState(() => _focused = f),
-      onKeyEvent: (node, event) => TvNav.handle(node, event, onSelect: widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          color: _focused ? Colors.white.withOpacity(0.12) : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                child: widget.selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    color:      widget.selected || _focused ? Colors.white : Colors.white60,
-                    fontSize:   14,
-                    fontWeight: widget.selected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ),
-            ],
+    return TvFocusable(
+      autofocus: autofocus,
+      onSelect: onTap,
+      builder: (_, f) => Container(
+        color: f ? AppTheme.primary : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        child: Row(children: [
+          SizedBox(width: 32, child: selected ? Icon(Icons.check_rounded, color: f ? AppTheme.primaryForeground : AppTheme.foreground, size: 26) : null),
+          Expanded(
+            child: Text(label,
+                style: TextStyle(
+                  color: f ? AppTheme.primaryForeground : (selected ? AppTheme.foreground : AppTheme.textSecondary),
+                  fontSize: 26, fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                )),
           ),
-        ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Desktop stub (media_kit desktop à réparer) ───────────────────────────────
+class _DesktopStub extends StatelessWidget {
+  final String url;
+  final VoidCallback onBack;
+  const _DesktopStub({required this.url, required this.onBack});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.desktop_windows_rounded, color: AppTheme.textMuted, size: 48),
+          const SizedBox(height: 16),
+          const Text('Lecture indisponible sur desktop (build à réparer).',
+              style: TextStyle(color: Colors.white70, fontSize: 20)),
+          const SizedBox(height: 20),
+          TvFocusable(autofocus: true, onSelect: onBack, builder: (_, f) => _WatchPageState._pill('Retour', f)),
+        ]),
       ),
     );
   }

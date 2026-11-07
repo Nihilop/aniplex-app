@@ -36,7 +36,15 @@ final _router = GoRouter(
     GoRoute(path: '/setup', builder: (_, __) => const SetupPage()),
     GoRoute(path: '/auth',  builder: (_, __) => const DeviceAuthPage()),
     GoRoute(path: '/home',  builder: (_, __) => const HomePage()),
-    GoRoute(path: '/catalogue', builder: (_, __) => const CataloguePage()),
+    GoRoute(
+      path: '/catalogue',
+      builder: (_, state) {
+        final type = state.uri.queryParameters['type'];
+        final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 2;
+        // Clé dépendante du type : changer d'onglet recrée l'écran → rechargement.
+        return CataloguePage(key: ValueKey('catalogue-$type-$tab'), type: type, tabIndex: tab);
+      },
+    ),
     GoRoute(
       path: '/catalogue/:id',
       builder: (_, state) => AnimeDetailPage(animeId: state.pathParameters['id']!),
@@ -92,6 +100,31 @@ class _AniplexAppState extends State<AniplexApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       routerConfig: _router,
+      // Pas d'override de `shortcuts`/`actions` : on garde les actions Flutter par
+      // défaut (dont DirectionalFocusAction) pour que le d-pad déplace le focus.
+      // Le OK/Select est géré directement par TvFocusable ; le Retour par PopScope.
+      // Canvas virtuel 1920×1080 mis à l'échelle de l'écran : toute l'UI Lumen est
+      // dessinée en pixels absolus 1080p puis scalée à la résolution réelle de la TV.
+      builder: (context, child) {
+        return FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: 1920,
+            height: 1080,
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: const Size(1920, 1080),
+                devicePixelRatio: 1.0,
+                padding: EdgeInsets.zero,
+                viewPadding: EdgeInsets.zero,
+                viewInsets: EdgeInsets.zero,
+              ),
+              child: child!,
+            ),
+          ),
+        );
+      },
     );
   }
 }
