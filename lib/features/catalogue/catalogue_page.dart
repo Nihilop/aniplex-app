@@ -1,146 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/api/api_client.dart';
+
+import '../../core/api/catalog_api.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/anime.dart';
-import '../../shared/widgets/anime_card.dart';
-import '../../shared/widgets/tv_scaffold.dart';
-import '../../shared/widgets/tv_button.dart';
+import '../../shared/models/catalog.dart';
+import '../../ui/focus/tv_focusable.dart';
+import '../../ui/widgets/lumen_cards.dart';
+import '../../ui/widgets/lumen_shell.dart';
 
+/// Catalogue « Lumen » : onglet Films / Séries / Animés (mappé sur le `type`
+/// anime), chips de genre dérivées du contenu, grille d'affiches en nav 2D.
 class CataloguePage extends StatefulWidget {
-  const CataloguePage({super.key});
+  final String? type;   // null = tout (Animés) · 'Movie' (Films) · 'TV' (Séries)
+  final int tabIndex;   // index dans la barre de nav (2/3/4)
+  const CataloguePage({super.key, this.type, this.tabIndex = 2});
 
   @override
   State<CataloguePage> createState() => _CataloguePageState();
 }
 
 class _CataloguePageState extends State<CataloguePage> {
-  final _api = ApiClient.instance;
-  final _scrollController = ScrollController();
+  static const _tabs = ['Accueil', 'Planning', 'Animés', 'Films', 'Séries'];
 
-  List<Anime> _items   = [];
-  bool        _loading = true;
-  bool        _loadingMore = false;
-  String?     _error;
-  int         _page    = 1;
-  bool        _hasMore = true;
-
-  static const _pageSize = 40;
+  final _api = CatalogApi();
+  late Future<CatalogueResult> _future;
+  List<Anime> _items = [];
+  String? _genre; // null = Tout
 
   @override
   void initState() {
     super.initState();
-    _load();
-    _scrollController.addListener(_onScroll);
+    _future = _api.catalogue(type: widget.type, page: 1);
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
+  String get _title => switch (widget.tabIndex) { 3 => 'Films', 4 => 'Séries', _ => 'Animés' };
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 400) {
-      _loadMore();
+  List<String> get _genres {
+    final s = <String>{};
+    for (final a in _items) {
+      s.addAll(a.genres);
     }
+    final list = s.toList()..sort();
+    return list;
   }
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; _page = 1; _hasMore = true; });
-    try {
-      final res = await _api.get<Map<String, dynamic>>(
-        '/api/aniplex/catalogue',
-        params: {'page': '1', 'limit': '$_pageSize'},
-      );
-      final data = res.data!;
-      // Shape: { items: [...], total, page, limit }
-      final items = (data['items'] as List? ?? [])
-          .map((e) => Anime.fromJson(e as Map<String, dynamic>))
-          .toList();
-      setState(() {
-        _items   = items;
-        _loading = false;
-        _hasMore = items.length >= _pageSize;
-      });
-    } catch (e) {
-      setState(() { _error = 'Impossible de charger le catalogue.'; _loading = false; });
-    }
-  }
+  List<Anime> get _filtered =>
+      _genre == null ? _items : _items.where((a) => a.genres.contains(_genre)).toList();
 
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) return;
-    setState(() => _loadingMore = true);
-    try {
-      final next = _page + 1;
-      final res = await _api.get<Map<String, dynamic>>(
-        '/api/aniplex/catalogue',
-        params: {'page': '$next', 'limit': '$_pageSize'},
-      );
-      final items = (res.data!['items'] as List? ?? [])
-          .map((e) => Anime.fromJson(e as Map<String, dynamic>))
-          .toList();
-      setState(() {
-        _items.addAll(items);
-        _page = next;
-        _hasMore = items.length >= _pageSize;
-        _loadingMore = false;
-      });
-    } catch (_) {
-      setState(() => _loadingMore = false);
+  void _onTab(int i) {
+    switch (i) {
+      case 0: context.go('/home');
+      case 1: context.go('/planning');
+      case 2: context.go('/catalogue?tab=2');
+      case 3: context.go('/catalogue?type=MOVIE&tab=3');
+      case 4: context.go('/catalogue?type=TV&tab=4');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return TvScaffold(
-      current: NavItem.catalogue,
-      child: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: FutureBuilder<CatalogueResult>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator(color: AppTheme.foreground));
+          }
+          _items = snap.data?.items ?? [];
+          final items = _filtered;
+          final genres = _genres;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TopNavBar(tabs: _tabs, current: widget.tabIndex, onTab: _onTab),
+              // Titre + compteur
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppTheme.safeH, 8, AppTheme.safeH, 24),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(_title, style: const TextStyle(color: AppTheme.foreground, fontSize: 84, fontWeight: FontWeight.w800, letterSpacing: -2)),
+                    const SizedBox(width: 24),
+                    Text('${items.length} titres', style: const TextStyle(color: AppTheme.textMuted, fontSize: 26)),
+                  ],
+                ),
+              ),
+              // Chips de genre
+              if (genres.isNotEmpty)
+                SizedBox(
+                  height: 72,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.safeH),
                     children: [
-                      Text(_error!, style: const TextStyle(color: AppTheme.textSecondary)),
-                      const SizedBox(height: 12),
-                      TvButton(autofocus: true, onTap: _load, child: const Text('Réessayer', style: TextStyle(color: Colors.white))),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: NavTab(label: 'Tout', selected: _genre == null, onTap: () => setState(() => _genre = null)),
+                      ),
+                      for (final g in genres)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: NavTab(label: g, selected: _genre == g, onTap: () => setState(() => _genre = g)),
+                        ),
                     ],
                   ),
-                )
-              : GridView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(
-                    AppTheme.overscanH,
-                    16,
-                    AppTheme.overscanH,
-                    AppTheme.overscanV,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 20,
-                    childAspectRatio: 2 / 3.6, // poster 2:3 + zone texte
-                  ),
-                  itemCount: _items.length + (_loadingMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= _items.length) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
-                        ),
-                      );
-                    }
-                    final anime = _items[index];
-                    return AnimeCard(
-                      anime: anime,
-                      autofocus: index == 0,
-                      onTap: () => context.push('/catalogue/${anime.id}'),
-                    );
-                  },
                 ),
+              const SizedBox(height: 24),
+              // Grille
+              Expanded(
+                child: items.isEmpty
+                    ? const Center(
+                        child: Text('Aucun titre dans cette catégorie pour le moment.',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 24)))
+                    : GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(AppTheme.safeH, 8, AppTheme.safeH, 64),
+                        cacheExtent: 1600,
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 286,
+                          childAspectRatio: 250 / 430, // affiche + marge titre
+                          mainAxisSpacing: 48,
+                          crossAxisSpacing: 36,
+                        ),
+                        itemCount: items.length,
+                        itemBuilder: (context, i) {
+                          final a = items[i];
+                          return TvFocusable(
+                            autofocus: i == 0,
+                            centerOnFocus: true,
+                            onSelect: () => context.push('/catalogue/${a.id}'),
+                            builder: (context, focused) => PosterCard(
+                              title: a.title,
+                              imageUrl: a.image ?? a.cover,
+                              metaLabel: [
+                                (a.type ?? 'ANIMÉ').toUpperCase(),
+                                if (a.season != null) a.season!.toUpperCase(),
+                              ].join(' · '),
+                              focused: focused,
+                              width: 250,
+                              height: 375,
+                              sideMargin: 0,
+                              scaleOnFocus: false, // grille : anneau seul, pas de découpe
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

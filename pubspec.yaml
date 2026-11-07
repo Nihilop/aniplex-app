@@ -1,7 +1,7 @@
 name: aniplex_tv
 description: Aniplex Android TV Client
 publish_to: 'none'
-version: 2.0.3+21
+version: 3.0.0+30000
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -27,10 +27,11 @@ dependencies:
 
   # UI
   qr_flutter: ^4.1.0
+  google_fonts: ^6.2.1
 
   # Video player (media_kit — meilleur support codec + Windows)
   media_kit: ^1.1.11
-  media_kit_video: ^1.2.4
+  media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.4
 
   # Utilitaires
@@ -43,6 +44,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+
+# path_provider_android 2.3.1 est publié sans natif android/ → résolution de
+# plugin KO (aucun APK produit). On force la 2.2.x complète.
+dependency_overrides:
+  path_provider_android: 2.2.22
 
 flutter:
   uses-material-design: true

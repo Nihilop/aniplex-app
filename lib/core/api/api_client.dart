@@ -86,6 +86,11 @@ class ApiClient {
     return res.data;
   }
 
+  /// Télécharge un fichier (URL absolue ou chemin relatif à baseUrl) vers
+  /// [savePath], cookies de session inclus — pour les polices ASS du stock.
+  Future<void> download(String urlOrPath, String savePath) =>
+      _dio.download(urlOrPath, savePath);
+
   Future<Response<T>> post<T>(String path, {dynamic data}) =>
       _dio.post<T>(path, data: data);
 

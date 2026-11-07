@@ -1,209 +1,223 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/api/api_client.dart';
-import '../../core/theme/app_theme.dart';
-import '../../shared/models/anime.dart';
-import '../../shared/widgets/tv_focus_card.dart';
-import '../../shared/widgets/tv_scaffold.dart';
 
+import '../../core/api/catalog_api.dart';
+import '../../core/theme/app_theme.dart';
+import '../../shared/models/catalog.dart';
+import '../../ui/focus/tv_focusable.dart';
+import '../../ui/widgets/lumen_cards.dart';
+import '../../ui/widgets/lumen_shell.dart';
+
+/// Planning « Lumen » : 7 jours à partir d'aujourd'hui, une colonne par jour,
+/// cartes épisode avec statut coloré. Nav 2D au focus directionnel.
 class PlanningPage extends StatefulWidget {
   const PlanningPage({super.key});
-
   @override
   State<PlanningPage> createState() => _PlanningPageState();
 }
 
 class _PlanningPageState extends State<PlanningPage> {
-  final _api = ApiClient.instance;
+  static const _tabs = ['Accueil', 'Planning', 'Animés', 'Films', 'Séries'];
+  static const _dayAbbr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  /// Map de weekday (1=Mon .. 7=Sun) → liste d'animes
-  Map<int, List<_PlanningEntry>> _schedule = {};
-  bool   _loading = true;
-  String? _error;
-
-  // Current focused day index (0–6)
-  int _dayIndex = DateTime.now().weekday - 1;
-
-  static const _days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  static const _daysFull = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  final _api = CatalogApi();
+  late Future<Map<int, List<PlanningEntry>>> _future;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _future = _api.planning();
   }
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      // GET /api/aniplex/planning → { "1": [...], "2": [...], ... "7": [...] }
-      final res = await _api.get<Map<String, dynamic>>('/api/aniplex/planning');
-      final data = res.data!;
-      final Map<int, List<_PlanningEntry>> schedule = {};
-      for (int d = 1; d <= 7; d++) {
-        final key = d.toString();
-        schedule[d] = (data[key] as List? ?? [])
-            .map((e) => _PlanningEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-      setState(() { _schedule = schedule; _loading = false; });
-    } catch (e) {
-      setState(() { _error = 'Impossible de charger le planning.'; _loading = false; });
+  void _onTab(int i) {
+    switch (i) {
+      case 0: context.go('/home');
+      case 1: break;
+      case 2: context.go('/catalogue?tab=2');
+      case 3: context.go('/catalogue?type=MOVIE&tab=3');
+      case 4: context.go('/catalogue?type=TV&tab=4');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return TvScaffold(
-      current: NavItem.planning,
-      child: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: AppTheme.textSecondary)))
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Day tabs
-                    _DayTabs(
-                      days: _days,
-                      selected: _dayIndex,
-                      onSelect: (i) => setState(() => _dayIndex = i),
-                    ),
-                    const SizedBox(height: 16),
-                    // Content for selected day
-                    Expanded(
-                      child: _DayContent(
-                        title: _daysFull[_dayIndex],
-                        entries: _schedule[_dayIndex + 1] ?? [],
-                        onTap: (entry) => context.push('/catalogue/${entry.animeId}'),
-                      ),
-                    ),
-                  ],
-                ),
-    );
-  }
-}
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: FutureBuilder<Map<int, List<PlanningEntry>>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator(color: AppTheme.foreground));
+          }
+          final byDay = snap.data ?? const {};
+          final today = DateTime.now();
+          // 7 colonnes = 7 dates consécutives à partir d'aujourd'hui.
+          final days = List.generate(7, (i) {
+            final date = today.add(Duration(days: i));
+            return (date: date, entries: byDay[date.weekday] ?? const <PlanningEntry>[]);
+          });
+          final total = days.fold<int>(0, (n, d) => n + d.entries.length);
+          final autoDay = days.indexWhere((d) => d.entries.isNotEmpty); // 1er jour non vide
 
-class _DayTabs extends StatelessWidget {
-  final List<String> days;
-  final int selected;
-  final ValueChanged<int> onSelect;
-
-  const _DayTabs({required this.days, required this.selected, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppTheme.overscanH, 8, AppTheme.overscanH, 0),
-      child: Row(
-        children: List.generate(days.length, (i) {
-          final isSelected = i == selected;
-          return TvFocusCard(
-            onTap: () => onSelect(i),
-            borderRadius: 8,
-            backgroundColor: isSelected ? AppTheme.primary : Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Text(
-              days[i],
-              style: TextStyle(
-                color: isSelected ? Colors.white : AppTheme.textSecondary,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _DayContent extends StatelessWidget {
-  final String title;
-  final List<_PlanningEntry> entries;
-  final void Function(_PlanningEntry) onTap;
-
-  const _DayContent({required this.title, required this.entries, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    if (entries.isEmpty) {
-      return const Center(
-        child: Text('Aucune sortie ce jour.', style: TextStyle(color: AppTheme.textMuted)),
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(AppTheme.overscanH, 0, AppTheme.overscanH, AppTheme.overscanV),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 6,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 16,
-        childAspectRatio: 2 / 3.6,
-      ),
-      itemCount: entries.length,
-      itemBuilder: (context, index) {
-        final e = entries[index];
-        return TvFocusCard(
-          onTap: () => onTap(e),
-          autofocus: index == 0,
-          borderRadius: 10,
-          backgroundColor: Colors.transparent,
-          child: Column(
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              TopNavBar(tabs: _tabs, current: 1, onTab: _onTab),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppTheme.safeH, 8, AppTheme.safeH, 24),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    const Text('Planning', style: TextStyle(color: AppTheme.foreground, fontSize: 84, fontWeight: FontWeight.w800, letterSpacing: -2)),
+                    const SizedBox(width: 24),
+                    Text('$total épisodes', style: const TextStyle(color: AppTheme.textMuted, fontSize: 26)),
+                  ],
+                ),
+              ),
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: e.image != null
-                      ? Image.network(
-                          e.image!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          loadingBuilder: (_, child, p) => p == null ? child : Container(color: AppTheme.surface),
-                          errorBuilder: (_, __, ___) => Container(color: AppTheme.surface,
-                              child: const Icon(Icons.movie, color: AppTheme.textMuted)),
-                        )
-                      : Container(color: AppTheme.surface,
-                          child: const Icon(Icons.movie, color: AppTheme.textMuted)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.safeH),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var di = 0; di < days.length; di++)
+                        Expanded(
+                          child: _dayColumn(days[di].date, days[di].entries, di == 0, di == autoDay),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                e.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
-              ),
-              if (e.episodeNumber != null)
-                Text(
-                  'Ép. ${e.episodeNumber}',
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
-                ),
             ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _dayColumn(DateTime date, List<PlanningEntry> entries, bool isToday, bool autoFirst) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // En-tête de jour
+          Container(
+            height: 52,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isToday ? AppTheme.primary : AppTheme.materialLight,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMini),
+            ),
+            child: Text(
+              '${_dayAbbr[date.weekday - 1]} ${date.day}',
+              style: TextStyle(
+                color: isToday ? AppTheme.primaryForeground : AppTheme.foreground,
+                fontSize: 22, fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          Expanded(
+            child: entries.isEmpty
+                ? const SizedBox.shrink()
+                : ListView.separated(
+                    itemCount: entries.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 14),
+                    itemBuilder: (context, i) {
+                      final e = entries[i];
+                      return TvFocusable(
+                        autofocus: autoFirst && i == 0,
+                        centerOnFocus: true,
+                        onSelect: () => context.push('/catalogue/${e.animeId}'),
+                        builder: (context, focused) => _EpisodeMini(entry: e, focused: focused),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PlanningEntry {
-  final String  animeId;
-  final String  title;
-  final String? image;
-  final int?    episodeNumber;
+/// Statut d'un épisode programmé.
+({String label, Color color}) _status(PlanningEntry e) {
+  final now = DateTime.now();
+  final air = DateTime.tryParse(e.airDate);
+  if (air != null && air.isAfter(now)) return (label: 'À venir', color: AppTheme.statusUpcoming);
+  if (e.available) {
+    final isToday = air != null && air.year == now.year && air.month == now.month && air.day == now.day;
+    return isToday ? (label: 'Nouveau', color: AppTheme.statusNew) : (label: 'Dispo', color: AppTheme.statusAvailable);
+  }
+  return (label: 'Bientôt', color: AppTheme.statusUpcoming);
+}
 
-  const _PlanningEntry({
-    required this.animeId,
-    required this.title,
-    this.image,
-    this.episodeNumber,
-  });
+String _time(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return '';
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
 
-  factory _PlanningEntry.fromJson(Map<String, dynamic> j) => _PlanningEntry(
-    animeId:       j['animeId'] as String,
-    title:         j['title']   as String,
-    image:         j['image']   as String?,
-    episodeNumber: j['episodeNumber'] as int?,
-  );
+class _EpisodeMini extends StatelessWidget {
+  final PlanningEntry entry;
+  final bool focused;
+  const _EpisodeMini({required this.entry, required this.focused});
+
+  @override
+  Widget build(BuildContext context) {
+    final st = _status(entry);
+    final fg = focused ? AppTheme.primaryForeground : AppTheme.foreground;
+    final sub = focused ? const Color(0x99000000) : AppTheme.textMuted;
+
+    return AnimatedScale(
+      scale: focused ? 1.03 : 1.0,
+      duration: AppTheme.motion,
+      curve: AppTheme.ease,
+      child: AnimatedContainer(
+        duration: AppTheme.motion,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: focused ? AppTheme.primary : AppTheme.materialLight,
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          boxShadow: focused ? AppTheme.focusShadow : null,
+          border: focused ? Border.all(color: AppTheme.foreground, width: 3) : null,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMini),
+              child: LumenArt(seed: entry.title, imageUrl: entry.image, width: 64, height: 92),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fg, fontSize: 20, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  if (entry.episodeNumber != null)
+                    Text('Ép. ${entry.episodeNumber}', style: TextStyle(color: sub, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(_time(entry.airDate), style: TextStyle(color: sub, fontSize: 17, fontFeatures: const [FontFeature.tabularFigures()])),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(st.label, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false,
+                            style: TextStyle(color: focused ? st.color.withValues(alpha: 0.85) : st.color, fontSize: 17, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

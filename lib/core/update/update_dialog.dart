@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/tv_button.dart';
+import '../../ui/widgets/lumen_shell.dart';
 import 'app_updater.dart';
 
+/// Modal de mise à jour OTA — style Lumen, boutons focusables au d-pad.
 class UpdateDialog extends StatefulWidget {
   final ReleaseInfo release;
   const UpdateDialog({super.key, required this.release});
@@ -11,6 +12,7 @@ class UpdateDialog extends StatefulWidget {
     return await showDialog<bool>(
           context: context,
           barrierDismissible: false,
+          barrierColor: Colors.black87,
           builder: (_) => UpdateDialog(release: release),
         ) ??
         false;
@@ -41,12 +43,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: const Color(0xF21A1A1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        side: const BorderSide(color: AppTheme.borderFaint),
+      ),
       child: SizedBox(
-        width: 480,
+        width: 720,
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(48),
           child: switch (_phase) {
             _Phase.prompt      => _buildPrompt(),
             _Phase.downloading => _buildDownloading(),
@@ -62,41 +67,32 @@ class _UpdateDialogState extends State<UpdateDialog> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Row(children: [
-        Icon(Icons.system_update_rounded, color: AppTheme.primary, size: 28),
-        SizedBox(width: 12),
+        Icon(Icons.system_update_rounded, color: AppTheme.foreground, size: 40),
+        SizedBox(width: 18),
         Text('Mise à jour disponible',
-            style: TextStyle(color: AppTheme.textPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+            style: TextStyle(color: AppTheme.foreground, fontSize: 36, fontWeight: FontWeight.w800)),
       ]),
-      const SizedBox(height: 12),
-      Text('Version ${widget.release.version} est disponible.',
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
+      const SizedBox(height: 16),
+      Text('La version ${widget.release.version} est disponible.',
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 24)),
       if (widget.release.releaseNotes?.trim().isNotEmpty == true) ...[
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(8)),
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: AppTheme.materialLight, borderRadius: BorderRadius.circular(AppTheme.radiusThumb)),
           child: Text(widget.release.releaseNotes!.trim(),
-              maxLines: 5, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 12, height: 1.5)),
+              maxLines: 6, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppTheme.textMuted, fontSize: 20, height: 1.5)),
         ),
       ],
-      const SizedBox(height: 24),
+      const SizedBox(height: 36),
       Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          TvButton(
-            outlined: true,
-            onTap: () => Navigator.of(context).pop(false),
-            child: const Text('Plus tard',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(width: 12),
-          TvButton(
-            autofocus: true,
-            onTap: _download,
-            child: const Text('Mettre à jour',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
+          PillButton(height: 62, label: 'Plus tard', onTap: () => Navigator.of(context).pop(false)),
+          const SizedBox(width: 20),
+          PillButton(height: 62, icon: Icons.download_rounded, label: 'Mettre à jour', autofocus: true, onTap: _download),
         ],
       ),
     ],
@@ -105,50 +101,42 @@ class _UpdateDialogState extends State<UpdateDialog> {
   Widget _buildDownloading() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      const Icon(Icons.download_rounded, color: AppTheme.primary, size: 40),
-      const SizedBox(height: 16),
+      const Icon(Icons.download_rounded, color: AppTheme.foreground, size: 56),
+      const SizedBox(height: 24),
       Text('Téléchargement… ${(_progress * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
-      const SizedBox(height: 16),
-      LinearProgressIndicator(
-        value: _progress,
-        backgroundColor: AppTheme.divider,
-        valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
-        minHeight: 4,
-        borderRadius: BorderRadius.circular(2),
+          style: const TextStyle(color: AppTheme.foreground, fontSize: 26, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 24),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: LinearProgressIndicator(
+          value: _progress,
+          backgroundColor: AppTheme.materialLight,
+          valueColor: const AlwaysStoppedAnimation(AppTheme.foreground),
+          minHeight: 8,
+        ),
       ),
-      const SizedBox(height: 8),
-      const Text('Ne ferme pas l\'application.',
-          style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+      const SizedBox(height: 14),
+      const Text('Ne ferme pas l’application.', style: TextStyle(color: AppTheme.textMuted, fontSize: 20)),
     ],
   );
 
   Widget _buildError() => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 40),
-      const SizedBox(height: 12),
+      const Icon(Icons.error_outline_rounded, color: AppTheme.destructive, size: 56),
+      const SizedBox(height: 18),
       const Text('Échec du téléchargement',
-          style: TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 8),
-      Text(_error ?? '', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12), textAlign: TextAlign.center),
-      const SizedBox(height: 20),
+          style: TextStyle(color: AppTheme.foreground, fontSize: 26, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 12),
+      Text(_error ?? '', maxLines: 3, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppTheme.textMuted, fontSize: 20), textAlign: TextAlign.center),
+      const SizedBox(height: 32),
       Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          TvButton(
-            outlined: true,
-            onTap: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
-          const SizedBox(width: 12),
-          TvButton(
-            autofocus: true,
-            onTap: _download,
-            child: const Text('Réessayer',
-                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-          ),
+          PillButton(height: 62, label: 'Annuler', onTap: () => Navigator.of(context).pop(false)),
+          const SizedBox(width: 20),
+          PillButton(height: 62, icon: Icons.refresh_rounded, label: 'Réessayer', autofocus: true, onTap: _download),
         ],
       ),
     ],

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}a{color:#f5f5f7}a:hover{color:#d0d0d6}</style>
+</helmet>
+<div style="position:fixed;inset:0;background:#000;overflow:hidden">
+<div style="position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%) scale({{ scale }});overflow:hidden;background:#0b0b0d;color:#f5f5f7;user-select:none">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Accueil" style="position:absolute;inset:0">
+  <div style="position:absolute;inset:0;background:{{ home.bg }}"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,8,10,.92) 0%,rgba(8,8,10,.55) 42%,rgba(8,8,10,0) 75%),linear-gradient(0deg,rgba(8,8,10,1) 0%,rgba(8,8,10,0) 60%)"></div>
+  <div style="position:absolute;inset:0;background:rgba(8,8,10,{{ home.dim }});transition:background .4s"></div>
+  <div style="position:absolute;right:96px;top:170px;font:500 14px ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4)">visuel clé — {{ home.bgTitle }}</div>
+  <div style="position:absolute;left:0;top:0;width:1920px;transform:translateY({{ home.y }}px);transition:transform .55s cubic-bezier(.2,.8,.2,1)">
+    <div style="height:740px;padding:0 96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;gap:22px;opacity:{{ home.heroOp }};transition:opacity .4s">
+      <div style="font-size:22px;font-weight:600;letter-spacing:.16em;color:rgba(255,255,255,.7)">SÉRIE ORIGINALE · SCI-FI</div>
+      <div style="font-size:128px;font-weight:800;letter-spacing:-.035em;line-height:.95">{{ feat.title }}</div>
+      <div style="display:flex;align-items:center;gap:14px;font-size:24px;font-weight:500;color:rgba(255,255,255,.8)">
+        <span>{{ feat.meta }}</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">4K</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">HDR</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">5.1</span>
+      </div>
+      <div style="max-width:880px;font-size:28px;line-height:1.4;color:rgba(255,255,255,.82);text-wrap:pretty">{{ feat.syn }}</div>
+      <div style="display:flex;gap:20px;margin-top:14px">
+        <sc-for list="{{ home.heroBtns }}" as="b" hint-placeholder-count="2">
+          <div onClick="{{ b.onClick }}" onMouseEnter="{{ b.onEnter }}" style="display:flex;align-items:center;gap:14px;height:76px;padding:0 42px;border-radius:999px;font-size:28px;font-weight:600;background:{{ b.bg }};color:{{ b.fg }};transform:{{ b.tf }};box-shadow:{{ b.sh }};backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);transition:all .2s;cursor:pointer"><span>{{ b.icon }}</span><span>{{ b.label }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="margin-top:40px">
+      <div style="padding:0 96px;font-size:34px;font-weight:700;letter-spacing:-.01em">Continuer à regarder</div>
+      <div style="display:flex;gap:40px;padding:30px 96px 20px;transform:translateX({{ home.contX }}px);transition:transform .45s cubic-bezier(.2,.8,.2,1)">
+        <sc-for list="{{ home.cont }}" as="it" hint-placeholder-count="5">
+          <div onClick="{{ it.onClick }}" onMouseEnter="{{ it.onEnter }}" style="flex:none;width:416px;display:flex;flex-direction:column;gap:18px;cursor:pointer">
+            <div style="position:relative;width:416px;height:234px;border-radius:20px;overflow:hidden;background:{{ it.art }};transform:{{ it.tf }};box-shadow:{{ it.sh }};transition:transform .25s,box-shadow .25s">
+              <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.65),rgba(0,0,0,0) 60%)"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,0) 45%);opacity:{{ it.gl }};transition:opacity .25s"></div>
+              <div style="position:absolute;left:24px;right:24px;bottom:36px;font-size:30px;font-weight:800;letter-spacing:-.01em">{{ it.title }}</div>
+              <div style="position:absolute;left:24px;right:24px;bottom:18px;height:6px;border-radius:3px;background:rgba(255,255,255,.3)"><div style="width:{{ it.pct }}%;height:100%;border-radius:3px;background:#f5f5f7"></div></div>
+            </div>
+            <div style="font-size:22px;font-weight:500;color:{{ it.txt }};transition:color .2s">{{ it.subtitle }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="margin-top:30px">
+      <div style="padding:0 96px;font-size:34px;font-weight:700;letter-spacing:-.01em">Récent</div>
+      <div style="display:flex;gap:36px;padding:30px 96px 60px;transform:translateX({{ home.recX }}px);transition:transform .45s cubic-bezier(.2,.8,.2,1)">
+        <sc-for list="{{ home.rec }}" as="p" hint-placeholder-count="7">
+          <div onClick="{{ p.onClick }}" onMouseEnter="{{ p.onEnter }}" style="flex:none;position:relative;width:250px;height:375px;border-radius:20px;overflow:hidden;background:{{ p.art }};transform:{{ p.tf }};box-shadow:{{ p.sh }};transition:transform .25s,box-shadow .25s;cursor:pointer">
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0) 55%)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,0) 45%);opacity:{{ p.gl }};transition:opacity .25s"></div>
+            <div style="position:absolute;left:20px;top:18px;font-size:14px;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.8)">{{ p.kind }}</div>
+            <div style="position:absolute;left:20px;right:20px;bottom:20px;font-size:29px;font-weight:800;line-height:1.05;letter-spacing:-.015em">{{ p.title }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCatalog }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Catalogue" style="position:absolute;inset:0;background:{{ cat.glow }}">
+  <div style="position:absolute;left:0;top:0;width:1920px;padding:190px 96px 80px;box-sizing:border-box;transform:translateY({{ cat.y }}px);transition:transform .55s cubic-bezier(.2,.8,.2,1)">
+    <div style="display:flex;align-items:baseline;justify-content:space-between">
+      <div style="font-size:84px;font-weight:800;letter-spacing:-.035em">{{ cat.title }}</div>
+      <div style="font-size:24px;font-weight:500;color:rgba(255,255,255,.55)">{{ cat.count }}</div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:32px">
+      <sc-for list="{{ cat.chips }}" as="ch" hint-placeholder-count="7">
+        <div onClick="{{ ch.onClick }}" onMouseEnter="{{ ch.onEnter }}" style="padding:14px 30px;border-radius:999px;font-size:24px;font-weight:600;background:{{ ch.bg }};color:{{ ch.fg }};transform:{{ ch.tf }};backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);transition:all .2s;cursor:pointer">{{ ch.label }}</div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(6,250px);justify-content:space-between;row-gap:48px;margin-top:52px">
+      <sc-for list="{{ cat.grid }}" as="p" hint-placeholder-count="12">
+        <div onClick="{{ p.onClick }}" onMouseEnter="{{ p.onEnter }}" style="position:relative;width:250px;height:375px;border-radius:20px;overflow:hidden;background:{{ p.art }};transform:{{ p.tf }};box-shadow:{{ p.sh }};transition:transform .25s,box-shadow .25s;cursor:pointer">
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0) 55%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,0) 45%);opacity:{{ p.gl }};transition:opacity .25s"></div>
+          <div style="position:absolute;left:20px;top:18px;font-size:14px;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.8)">{{ p.meta }}</div>
+          <div style="position:absolute;left:20px;right:20px;bottom:20px;font-size:29px;font-weight:800;line-height:1.05;letter-spacing:-.015em">{{ p.title }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ cat.empty }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:40px;font-size:28px;color:rgba(255,255,255,.5)">Aucun titre dans cette catégorie pour le moment.</div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Détails" style="position:absolute;inset:0">
+  <div style="position:absolute;inset:0;background:{{ d.bg }}"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,8,10,.94) 0%,rgba(8,8,10,.6) 45%,rgba(8,8,10,.1) 80%),linear-gradient(0deg,rgba(8,8,10,.95) 0%,rgba(8,8,10,0) 50%)"></div>
+  <div style="position:absolute;right:96px;top:60px;font:500 14px ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4)">visuel clé — {{ d.title }}</div>
+  <div style="position:absolute;left:0;top:0;width:1920px;transform:translateY({{ d.y }}px);transition:transform .55s cubic-bezier(.2,.8,.2,1)">
+    <div style="padding:200px 96px 0;display:flex;flex-direction:column;gap:22px;opacity:{{ d.infoOp }};transition:opacity .4s">
+      <div style="font-size:22px;font-weight:600;letter-spacing:.16em;color:rgba(255,255,255,.7)">{{ d.label }}</div>
+      <div style="font-size:112px;font-weight:800;letter-spacing:-.035em;line-height:.95;max-width:1300px">{{ d.title }}</div>
+      <div style="display:flex;align-items:center;gap:14px;font-size:24px;font-weight:500;color:rgba(255,255,255,.8)">
+        <span>{{ d.meta }}</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">4K</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">HDR</span>
+        <span style="padding:3px 10px;border:1.5px solid rgba(255,255,255,.5);border-radius:6px;font-size:17px;font-weight:700">VF · VOSTFR</span>
+      </div>
+      <div style="max-width:960px;font-size:29px;line-height:1.42;color:rgba(255,255,255,.85);text-wrap:pretty">{{ d.syn }}</div>
+      <div style="display:flex;gap:20px;margin-top:14px">
+        <sc-for list="{{ d.btns }}" as="b" hint-placeholder-count="2">
+          <div onClick="{{ b.onClick }}" onMouseEnter="{{ b.onEnter }}" style="display:flex;align-items:center;gap:14px;height:76px;padding:0 42px;border-radius:999px;font-size:28px;font-weight:600;background:{{ b.bg }};color:{{ b.fg }};transform:{{ b.tf }};box-shadow:{{ b.sh }};backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);transition:all .2s;cursor:pointer"><span>{{ b.icon }}</span><span>{{ b.label }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="margin:72px 96px 0;padding-bottom:120px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:34px;font-weight:700;letter-spacing:-.01em">{{ d.panelTitle }}</div>
+        <sc-if value="{{ d.isSeries }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:4px;padding:6px;border-radius:999px;background:rgba(118,118,128,.24)">
+            <sc-for list="{{ d.seasons }}" as="se" hint-placeholder-count="2">
+              <div onClick="{{ se.onClick }}" onMouseEnter="{{ se.onEnter }}" style="padding:12px 30px;border-radius:999px;font-size:23px;font-weight:600;background:{{ se.bg }};color:{{ se.fg }};transform:{{ se.tf }};box-shadow:{{ se.sh }};transition:all .2s;cursor:pointer">{{ se.label }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ d.isSeries }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:24px;padding-top:36px;max-width:1400px">
+          <sc-for list="{{ d.eps }}" as="e" hint-placeholder-count="5">
+            <div onClick="{{ e.onClick }}" onMouseEnter="{{ e.onEnter }}" style="display:flex;align-items:center;gap:40px;cursor:pointer">
+              <div style="position:relative;flex:none;width:320px;height:180px;border-radius:18px;overflow:hidden;background:{{ e.art }};transform:{{ e.tf }};box-shadow:{{ e.sh }};transition:transform .25s,box-shadow .25s">
+                <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,0) 45%);opacity:{{ e.gl }};transition:opacity .25s"></div>
+                <div style="position:absolute;left:16px;top:12px;font:500 13px ui-monospace,Menlo,monospace;letter-spacing:.08em;color:rgba(255,255,255,.5)">VIGNETTE ÉP. {{ e.num }}</div>
+                <div style="position:absolute;left:16px;right:16px;bottom:14px;height:6px;border-radius:3px;background:rgba(255,255,255,.28);opacity:{{ e.barOp }}"><div style="width:{{ e.pct }}%;height:100%;border-radius:3px;background:#f5f5f7"></div></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+                <div style="font-size:30px;font-weight:700;letter-spacing:-.01em;color:{{ e.txt }};transition:color .2s">{{ e.num }}. {{ e.name }}</div>
+                <div style="font-size:23px;font-weight:500;color:rgba(255,255,255,.5)">{{ e.dur }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ d.isFilm }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:36px;padding-top:32px;transform:translateX({{ d.simX }}px);transition:transform .45s cubic-bezier(.2,.8,.2,1)">
+          <sc-for list="{{ d.sim }}" as="p" hint-placeholder-count="6">
+            <div onClick="{{ p.onClick }}" onMouseEnter="{{ p.onEnter }}" style="flex:none;position:relative;width:250px;height:375px;border-radius:20px;overflow:hidden;background:{{ p.art }};transform:{{ p.tf }};box-shadow:{{ p.sh }};transition:transform .25s,box-shadow .25s;cursor:pointer">
+              <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0) 55%)"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,0) 45%);opacity:{{ p.gl }};transition:opacity .25s"></div>
+              <div style="position:absolute;left:20px;top:18px;font-size:14px;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.8)">{{ p.kind }}</div>
+              <div style="position:absolute;left:20px;right:20px;bottom:20px;font-size:29px;font-weight:800;line-height:1.05;letter-spacing:-.015em">{{ p.title }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWatch }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Lecture" onMouseMove="{{ wake }}" style="position:absolute;inset:0;background:#000;overflow:hidden;cursor:{{ w.cursor }}">
+  <div style="position:absolute;inset:-80px;background:{{ w.art }};transform:{{ w.kb }};transition:transform 1s linear"></div>
+  <div style="position:absolute;left:0;right:0;top:61%;text-align:center;font:500 15px ui-monospace,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4)">flux vidéo — {{ w.title }}</div>
+  <sc-if value="{{ w.paused }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:50%;top:50%;width:168px;height:168px;margin:-84px 0 0 -84px;border-radius:50%;background:rgba(40,40,46,.45);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:64px;padding-left:10px;box-sizing:border-box">▶</div>
+  </sc-if>
+  <sc-if value="{{ w.subOn }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:0;right:0;bottom:{{ w.subBottom }}px;display:flex;justify-content:center;transition:bottom .35s">
+      <div style="padding:10px 22px;border-radius:12px;background:rgba(0,0,0,.55);font-size:40px;font-weight:600;text-shadow:0 2px 8px rgba(0,0,0,.6)">{{ w.sub }}</div>
+    </div>
+  </sc-if>
+  <div style="position:absolute;inset:0;opacity:{{ w.ctrlOp }};transition:opacity .35s;pointer-events:{{ w.pe }}">
+    <div style="position:absolute;left:0;right:0;top:0;height:260px;background:linear-gradient(180deg,rgba(0,0,0,.7),rgba(0,0,0,0))"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:linear-gradient(0deg,rgba(0,0,0,.9) 0%,rgba(0,0,0,.6) 45%,rgba(0,0,0,0) 100%)"></div>
+    <div style="position:absolute;left:96px;right:96px;top:64px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:46px;font-weight:800;letter-spacing:-.02em">{{ w.title }}</div>
+        <div style="font-size:26px;font-weight:500;color:rgba(255,255,255,.75)">{{ w.ep }}</div>
+      </div>
+      <div style="font-size:28px;font-weight:500;color:rgba(255,255,255,.8)">{{ clock }}</div>
+    </div>
+    <div style="position:absolute;left:96px;right:96px;bottom:64px;display:flex;flex-direction:column;gap:18px">
+      <div onClick="{{ w.scrubClick }}" onMouseEnter="{{ w.scrubEnter }}" style="padding:10px 0;cursor:pointer">
+        <div style="position:relative;height:{{ w.trackH }}px;border-radius:999px;background:rgba(255,255,255,.25);box-shadow:{{ w.trackSh }};transition:height .2s,box-shadow .2s">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:{{ w.pct }}%;border-radius:999px;background:#f5f5f7"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:23px;font-weight:500;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75)"><span>{{ w.cur }}</span><span>-{{ w.rem }}</span></div>
+      <div style="display:flex;justify-content:center;gap:18px;margin-top:6px">
+        <sc-for list="{{ w.btns }}" as="b" hint-placeholder-count="5">
+          <div onClick="{{ b.onClick }}" onMouseEnter="{{ b.onEnter }}" style="display:flex;align-items:center;height:68px;padding:0 34px;border-radius:999px;font-size:25px;font-weight:600;background:{{ b.bg }};color:{{ b.fg }};transform:{{ b.tf }};box-shadow:{{ b.sh }};transition:all .2s;cursor:pointer;white-space:nowrap">{{ b.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPlanning }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Planning" style="position:absolute;inset:0;background:radial-gradient(70% 55% at 50% 0%, oklch(0.36 0.07 200 / .5), transparent 70%), #0b0b0d">
+  <div style="position:absolute;left:96px;right:96px;top:180px;display:flex;align-items:center;justify-content:space-between;opacity:{{ p.headOp }};transition:opacity .35s">
+    <div style="display:flex;align-items:baseline;gap:24px">
+      <div style="font-size:84px;font-weight:800;letter-spacing:-.035em">Planning</div>
+      <div style="font-size:24px;font-weight:500;color:rgba(255,255,255,.55)">{{ p.count }}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <sc-for list="{{ p.ctrls }}" as="b" hint-placeholder-count="3">
+        <div onClick="{{ b.onClick }}" onMouseEnter="{{ b.onEnter }}" style="display:flex;align-items:center;gap:10px;height:64px;padding:0 28px;border-radius:999px;font-size:24px;font-weight:600;background:{{ b.bg }};color:{{ b.fg }};transform:{{ b.tf }};box-shadow:{{ b.sh }};backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);transition:all .2s;cursor:pointer;white-space:nowrap">{{ b.label }}</div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="position:absolute;left:96px;right:96px;top:310px;bottom:0;overflow:hidden">
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:20px;padding-top:14px;transform:translateY({{ p.y }}px);transition:transform .5s cubic-bezier(.2,.8,.2,1)">
+      <sc-for list="{{ p.days }}" as="day" hint-placeholder-count="7">
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 20px;border-radius:999px;background:{{ day.hbg }};color:{{ day.hfg }};font-size:22px;font-weight:700">
+            <span>{{ day.label }}</span><span style="font-size:18px;font-weight:600;opacity:.6">{{ day.n }}</span>
+          </div>
+          <sc-for list="{{ day.eps }}" as="e" hint-placeholder-count="3">
+            <div onClick="{{ e.onClick }}" onMouseEnter="{{ e.onEnter }}" style="display:flex;gap:14px;padding:10px;border-radius:20px;background:{{ e.bg }};color:{{ e.fg }};transform:{{ e.tf }};box-shadow:{{ e.sh }};backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);transition:all .22s;cursor:pointer;min-width:0">
+              <div style="position:relative;flex:none;width:64px;height:92px;border-radius:12px;overflow:hidden;background:{{ e.art }}">
+                <div style="position:absolute;inset:0;background:rgba(8,8,10,.55);opacity:{{ e.dim }}"></div>
+                <div style="position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:oklch(0.78 0.16 155);color:#0b0b0d;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;opacity:{{ e.dim }}">✓</div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;padding:2px 0">
+                <div style="font-size:20px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                <div style="font-size:18px;font-weight:500;opacity:.65">Ép. {{ e.ep }}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:17px;font-weight:600">
+                  <span style="opacity:.75;font-variant-numeric:tabular-nums;white-space:nowrap">{{ e.time }}</span>
+                  <span style="color:{{ e.sc }};white-space:nowrap">{{ e.status }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;left:0;right:0;top:0;height:150px;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:0 96px;opacity:{{ navOp }};transform:translateY({{ navY }}px);transition:opacity .35s,transform .35s;pointer-events:{{ navPe }}">
+  <div style="width:260px;font-size:32px;font-weight:800;letter-spacing:.34em">LUMEN</div>
+  <div style="display:flex;gap:6px;padding:8px;border-radius:999px;background:rgba(40,40,46,.5);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border:1px solid rgba(255,255,255,.08)">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+      <div onClick="{{ n.onClick }}" onMouseEnter="{{ n.onEnter }}" style="padding:16px 38px;border-radius:999px;font-size:26px;font-weight:600;background:{{ n.bg }};color:{{ n.fg }};transform:{{ n.tf }};transition:all .2s;cursor:pointer">{{ n.label }}</div>
+    </sc-for>
+  </div>
+  <div style="width:260px;display:flex;align-items:center;justify-content:flex-end;gap:24px">
+    <div style="font-size:26px;font-weight:500;color:rgba(255,255,255,.8);font-variant-numeric:tabular-nums">{{ clock }}</div>
+    <div style="width:56px;height:56px;border-radius:50%;background:oklch(0.6 0.12 250);display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:700">M</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showHints }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;right:40px;bottom:32px;z-index:30;display:flex;gap:22px;padding:12px 22px;border-radius:999px;background:rgba(40,40,46,.55);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border:1px solid rgba(255,255,255,.08);font-size:19px;font-weight:500;color:rgba(255,255,255,.75)">
+    <span>↑ ↓ ← → Naviguer</span><span>Entrée · OK</span><span>Échap · Retour</span>
+  </div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;focusStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Zoom + ombre&quot;,&quot;Contour&quot;],&quot;default&quot;:&quot;Zoom + ombre&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showHints&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;autoHide&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const G=['Action','Drame','Sci-fi','Thriller','Comédie','Fantasy'];
+const KIND=['FILM','SÉRIE','ANIMÉ'];
+const TYPES=['Films','Séries','Animés'];
+const RATING={Action:'16+',Thriller:'16+',Drame:'13+','Sci-fi':'13+',Comédie:'Tous publics',Fantasy:'10+'};
+const T=[
+[1,0,'Horizon Zéro','Sci-fi',2026,128,230,'Une pilote d’essai traverse une anomalie et revient sur une Terre qui la croit morte depuis dix ans.'],
+[2,0,'Les Heures Bleues','Drame',2025,112,255,'Deux sœurs que tout oppose rouvrent la librairie familiale le temps d’un dernier été.'],
+[3,0,'Vertige Nord','Thriller',2026,104,200,'Coincée dans un refuge des Alpes, une guide comprend que l’un des randonneurs ment.'],
+[4,0,'Le Dernier Phare','Fantasy',2024,121,40,'Sur une île oubliée, un gardien protège la seule lumière qui tient la brume à distance.'],
+[5,0,'Sel & Cendre','Drame',2025,97,25,'Un pêcheur breton accueille un adolescent en fuite. Aucun des deux ne dit la vérité.'],
+[6,0,'Circuit Fantôme','Action',2026,115,5,'Un ancien pilote de rallye accepte une dernière course nocturne à travers l’Europe.'],
+[7,0,'Mademoiselle Orage','Comédie',2025,101,330,'Une météorologue télé, licenciée en direct, lance une start-up de prévisions très approximatives.'],
+[8,0,'Basse Fréquence','Thriller',2024,109,285,'Un ingénieur du son capte sur ses bandes une voix qui n’aurait jamais dû s’y trouver.'],
+[9,0,'Les Fauves de Marseille','Action',2025,118,60,'Trois amis d’enfance, un braquage raté et une ville entière à leurs trousses.'],
+[10,0,'Atlas Intérieur','Sci-fi',2026,134,180,'Une neurologue cartographie les rêves de ses patients et découvre un lieu qu’ils ont tous en commun.'],
+[11,1,'Station Ophélie','Sci-fi',2026,2,210,'À 400 km au-dessus de la Terre, l’équipage d’une station privée perd tout contact avec le sol. Le compte à rebours commence.'],
+[12,1,'Ligne de Fracture','Thriller',2025,3,15,'Après un séisme à Lyon, une ingénieure découvre que l’effondrement d’un immeuble n’avait rien d’un accident.'],
+[13,1,'La Maison Kessler','Drame',2024,2,300,'Trois générations, une maison de couture à Paris et un héritage qui divise la famille.'],
+[14,1,'Les Indociles','Comédie',2026,1,95,'Une prof remplaçante hérite de la classe dont personne ne veut. Elle n’a rien d’une prof.'],
+[15,1,'Dossier 47','Thriller',2025,2,250,'Un dossier classé, une enquêtrice mutée aux archives, et un tueur qui reprend du service.'],
+[16,1,'Terres Brûlées','Action',2024,3,45,'Dans un Sud desséché, deux clans se disputent la dernière source d’eau.'],
+[17,1,'Le Royaume d’Ambre','Fantasy',2026,1,70,'Une cartographe doit dessiner un royaume dont les frontières changent chaque nuit.'],
+[18,1,'Clair-Obscur','Drame',2025,2,270,'Un peintre faussaire est contraint de travailler pour le musée qu’il a escroqué.'],
+[19,1,'Brigade Minuit','Action',2026,1,350,'Une unité de police qui n’opère que la nuit, dans un Paris qui ne dort jamais.'],
+[20,1,'Les Voisins du 5e','Comédie',2024,3,140,'Un immeuble, six appartements et des murs beaucoup trop fins.'],
+[21,2,'Kaze no Kioku','Fantasy',2025,2,165,'Une jeune messagère capable d’entendre la mémoire du vent part à la recherche de son village disparu.'],
+[22,2,'Neon Ronin','Action',2026,1,320,'Dans le Tokyo de 2099, un samouraï augmenté traque les fragments de son propre code.'],
+[23,2,'Hoshi Academy','Comédie',2025,2,85,'Une école d’apprentis astronomes où les étoiles filantes tombent un peu trop souvent dans la cour.'],
+[24,2,'Le Sceau d’Akatsuki','Fantasy',2024,3,20,'Un apprenti moine brise par erreur le sceau qui retenait cent démons.'],
+[25,2,'Mecha Requiem','Sci-fi',2026,1,240,'Les derniers pilotes d’une guerre perdue découvrent ce que cachent vraiment leurs machines.'],
+[26,2,'Petit Esprit du Thé','Comédie',2025,1,120,'Un esprit minuscule s’installe dans la théière d’une étudiante débordée.'],
+[27,2,'Kuroi Tsuki','Thriller',2026,1,280,'À chaque nouvelle lune, un détective lycéen revit la même nuit de meurtre.'],
+[28,2,'Ryū no Michi','Action',2024,2,35,'Un jeune forgeron rejoint la voie des dragons pour sauver sa sœur.'],
+[29,2,'Orbit Kids','Sci-fi',2025,1,195,'Cinq enfants nés sur une station orbitale posent le pied sur Terre pour la première fois.'],
+[30,2,'Les Larmes de Yuki','Drame',2026,1,340,'Une violoniste perd l’ouïe à la veille du concours de sa vie.']];
+const ITEMS=T.map(a=>({id:a[0],type:a[1],title:a[2],genre:a[3],year:a[4],n:a[5],hue:a[6],syn:a[7]}));
+const BY={};ITEMS.forEach(i=>BY[i.id]=i);
+const FEAT=BY[11];
+const RECENT=[11,22,1,14,25,3,19,10,27,17,6,30];
+const EPN=['Le point de rupture','Ce qui reste','Nuit blanche','Les absents','Signal faible','Contre-courant','La traversée','Fin de partie','Retour à zéro','Sous la surface','Le pacte','Lumière froide'];
+const SUBS=[['— Tu as entendu ?','— Rien. C’est juste le vent.','— Le vent ne frappe pas aux portes.','— Reste derrière moi.','— On n’a plus beaucoup de temps.','— Alors on y va maintenant.'],['— Did you hear that?','— Nothing. Just the wind.','— The wind doesn’t knock on doors.','— Stay behind me.','— We’re running out of time.','— Then we go now.']];
+const epCount=i=>i.type===2?12:8;
+const epDur=i=>i.type===2?24:48;
+const durOf=i=>(i.type===0?i.n:epDur(i))*60;
+const epName=(i,s,e)=>EPN[(e+s*5+i.id)%12];
+const art=(h,v=0)=>{const h2=(h+50+v*23)%360,x=25+(v*37)%50,y=20+(v*53)%50;return `radial-gradient(70% 60% at ${100-x}% ${100-y}%, oklch(0.5 0.13 ${h2} / .8), transparent 70%), radial-gradient(110% 90% at ${x}% ${y}%, oklch(0.62 0.14 ${h}) 0%, oklch(0.32 0.09 ${h}) 45%, oklch(0.13 0.03 ${h}) 100%)`;};
+const fmt=s=>{s=Math.max(0,Math.floor(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0');};
+const fmtDur=m=>`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`;
+const SCHED=[[21,0,'13:30',17],[26,0,'14:00',6],[23,1,'15:00',5],[24,1,'15:30',18],[28,1,'17:35',9],[12,1,'21:00',5],[27,2,'14:00',5],[29,2,'16:45',5],[15,2,'21:00',6],[22,3,'16:26',7],[13,3,'21:00',4],[25,4,'14:30',5],[14,4,'18:00',5],[19,4,'22:00',6],[30,5,'09:30',5],[17,5,'13:00',6],[20,5,'14:00',7],[11,5,'20:00',7],[16,6,'15:30',6],[18,6,'21:00',5]];
+const SEEN={21:1,23:1,24:1,27:1,29:1,22:1,13:1,15:1};
+const DAYS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const MONTHS=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const TODAY=5;
+const weekStart=w=>new Date(2026,10,2+7*w);
+const shift=(c,n,w,g,vis=1728)=>{const max=Math.max(0,n*(w+g)-g-vis);return -Math.min(max,Math.max(0,c-1)*(w+g));};
+
+class Component extends DCLogic {
+  state={screen:'home',stack:[],
+    f:{home:{r:1,c:0,m:{0:0}},catalog:{r:2,c:0,m:{}},detail:{r:0,c:0,m:{}},watch:{r:0,c:1,m:{}},planning:{r:2,c:5,i:0,m1:1,m2:5}},week:0,favOnly:false,
+    type:1,genre:0,detailId:11,season:0,watchId:1,ws:0,we:0,time:0,playing:true,ctrl:true,subs:0,
+    myList:{11:true,21:true,22:true,27:true,30:true,12:true},
+    progress:{12:{s:0,e:3,t:1790,d:2880},1:{s:0,e:0,t:2690,d:7680},22:{s:0,e:6,t:1150,d:1440},13:{s:1,e:1,t:576,d:2880},21:{s:0,e:10,t:720,d:1440}},
+    order:[12,1,22,13,21],scale:1,clock:''};
+
+  componentDidMount(){
+    this.onKey=e=>this.key(e);window.addEventListener('keydown',this.onKey);
+    this.onRes=()=>this.setState({scale:Math.min(window.innerWidth/1920,window.innerHeight/1080)});
+    this.onRes();window.addEventListener('resize',this.onRes);
+    this.last=Date.now();this.iv=setInterval(()=>this.tick(),1000);this.tick();
+  }
+  componentWillUnmount(){window.removeEventListener('keydown',this.onKey);window.removeEventListener('resize',this.onRes);clearInterval(this.iv);}
+
+  contList(){return this.state.order.filter(id=>this.state.progress[id]);}
+  planCols(){const s=this.state,w=s.week,now=new Date(),nowMin=now.getHours()*60+now.getMinutes();
+    const cols=DAYS.map(()=>[]);
+    SCHED.forEach(([id,d,time,ep])=>{const n=ep+w;if(n<1)return;if(s.favOnly&&!s.myList[id])return;
+      const tm=+time.slice(0,2)*60+ +time.slice(3);
+      const released=w<0||(w===0&&(d<TODAY||(d===TODAY&&tm<=nowMin)));
+      const seen=released&&SEEN[id]&&(w<0||d<TODAY);
+      const status=seen?'seen':!released?'soon':(w===0&&d===TODAY)?'new':'avail';
+      cols[d].push({id,d,time,ep:n,status});});
+    cols.forEach(c=>c.sort((a,b)=>a.time.localeCompare(b.time)));return cols;}
+  catItems(){const s=this.state;return ITEMS.filter(x=>x.type===s.type&&(s.genre===0||G[s.genre-1]===x.genre));}
+  similar(it){return ITEMS.filter(x=>x.id!==it.id&&x.type===0).sort((a,b)=>(b.genre===it.genre)-(a.genre===it.genre)).slice(0,9);}
+
+  rows(){const s=this.state;
+    switch(s.screen){
+      case 'home':return [5,2,this.contList().length,RECENT.length];
+      case 'catalog':{const g=this.catItems(),rr=[5,G.length+1];for(let i=0;i<g.length;i+=6)rr.push(Math.min(6,g.length-i));return rr;}
+      case 'detail':{const it=BY[s.detailId];return it.type===0?[2,this.similar(it).length]:[2,it.n,...Array(epCount(it)).fill(1)];}
+      case 'watch':return [1,BY[s.watchId].type===0?4:5];}
+    return [];
+  }
+
+  tick(){const s=this.state,now=new Date(),up={};
+    const clock=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    if(clock!==s.clock)up.clock=clock;
+    if(s.screen==='watch'){
+      if(s.playing){const it=BY[s.watchId],d=durOf(it);let t=s.time+1;
+        if(t>=d){if(it.type!==0&&this.hasNext()){this.nextEp();return;}up.playing=false;up.ctrl=true;t=d;}
+        up.time=t;up.progress={...s.progress,[it.id]:{s:s.ws,e:s.we,t,d}};}
+      if(s.playing&&s.ctrl&&this.props.autoHide!==false&&Date.now()-this.last>4000)up.ctrl=false;
+    }
+    if(Object.keys(up).length)this.setState(up);
+  }
+
+  key(e){
+    const map={ArrowUp:'u',ArrowDown:'d',ArrowLeft:'l',ArrowRight:'r',Enter:'ok',' ':'ok',Escape:'back',Backspace:'back'};
+    const k=map[e.key];if(!k)return;e.preventDefault();this.last=Date.now();
+    const s=this.state;
+    if(s.screen==='watch'&&!s.ctrl){this.setState({ctrl:true});if(k==='ok')this.togglePlay();if(k!=='back')return;}
+    if(k==='back')return this.back();
+    if(k==='ok')return this.activate();
+    this.move(k);
+  }
+
+  moveP(k){const s=this.state,F=s.f.planning,cols=this.planCols();let {r,c,i,m1,m2}=F;
+    const near=(from,dir)=>{for(let x=from;x>=0&&x<7;x+=dir)if(cols[x].length)return x;return -1;};
+    if(r===0){if(k==='l')c=Math.max(0,c-1);else if(k==='r')c=Math.min(4,c+1);else if(k==='d'){r=1;c=m1!=null?m1:1;}}
+    else if(r===1){if(k==='l')c=Math.max(0,c-1);else if(k==='r')c=Math.min(2,c+1);
+      else if(k==='u'){m1=c;r=0;c=1;}
+      else if(k==='d'){let d=m2!=null?m2:TODAY;if(!cols[d].length){const a=near(d,1),b=near(d,-1);d=a>=0?a:b;}
+        if(d<0)return;m1=c;r=2;c=d;i=0;}}
+    else{if(k==='u'){if(i>0)i--;else{m2=c;r=1;c=m1!=null?m1:1;}}
+      else if(k==='d')i=Math.min(cols[c].length-1,i+1);
+      else{const d=near(c+(k==='r'?1:-1),k==='r'?1:-1);if(d<0)return;c=d;i=Math.min(i,cols[d].length-1);}}
+    this.setState({f:{...s.f,planning:{r,c,i:i||0,m1,m2}}});}
+  hoverP(r,c,i,act){this.last=Date.now();const F=this.state.f.planning;
+    if(F.r===r&&F.c===c&&(r!==2||F.i===i)){if(act)this.activate();return;}
+    this.setState(st=>({f:{...st.f,planning:{...st.f.planning,r,c,i}}}),act?()=>this.activate():undefined);}
+  move(k){const s=this.state,sc=s.screen;if(sc==='planning')return this.moveP(k);const rows=this.rows();let {r,c,m}=s.f[sc];m={...m};
+    if(sc==='watch'&&r===0&&(k==='l'||k==='r'))return this.seek(k==='l'?-10:10);
+    if(k==='l')c=Math.max(0,c-1);
+    else if(k==='r')c=Math.min(rows[r]-1,c+1);
+    else{const dir=k==='d'?1:-1;let nr=r+dir;while(nr>=0&&nr<rows.length&&!rows[nr])nr+=dir;
+      if(nr<0||nr>=rows.length)return;
+      m[r]=c;const grid=sc==='catalog'&&r>=2&&nr>=2;
+      c=Math.min(grid?c:(m[nr]!=null?m[nr]:c),rows[nr]-1);r=nr;}
+    const up={f:{...s.f,[sc]:{r,c,m}}};
+    if(sc==='detail'&&r===1&&BY[s.detailId].type!==0)up.season=c;
+    this.setState(up);
+  }
+
+  hover(sc,r,c,act){this.last=Date.now();const cur=this.state.f[sc];
+    if(cur.r===r&&cur.c===c){if(act)this.activate();return;}
+    this.setState(st=>({f:{...st.f,[sc]:{...st.f[sc],r,c}}}),act?()=>this.activate():undefined);
+  }
+
+  go(screen,extra={},push=true){this.setState(s=>({...extra,screen,stack:push?[...s.stack,{screen:s.screen,detailId:s.detailId,season:s.season,fd:s.f.detail}]:[]}));}
+
+  back(){const s=this.state;
+    if(s.stack.length){const p=s.stack[s.stack.length-1];
+      this.setState({screen:p.screen,detailId:p.detailId,season:p.season,f:{...s.f,detail:p.fd},stack:s.stack.slice(0,-1),playing:false});}
+    else if(s.screen!=='home')this.setState({screen:'home'});
+  }
+
+  tab(c){const s=this.state;
+    if(c===0)return this.setState({screen:'home',stack:[],f:{...s.f,home:{r:0,c:0,m:{...s.f.home.m,0:0}}}});
+    if(c===1)return this.setState({screen:'planning',stack:[],f:{...s.f,planning:{r:0,c:1,i:0,m1:1,m2:TODAY}}});
+    this.setState({screen:'catalog',stack:[],type:c-2,genre:0,f:{...s.f,catalog:{r:0,c,m:{0:c,1:0}}}});
+  }
+
+  openDetail(id){const p=this.state.progress[id];
+    this.go('detail',{detailId:id,season:p?p.s:0,f:{...this.state.f,detail:{r:0,c:0,m:{}}}});}
+
+  play(id,se,ep){const s=this.state,it=BY[id],p=s.progress[id];let ws=se,we=ep,time=0;
+    if(se==null){if(p){ws=p.s;we=p.e;time=p.t>=p.d-5?0:p.t;}else{ws=0;we=0;}}
+    else if(p&&p.s===se&&p.e===ep&&p.t<p.d-5)time=p.t;
+    this.last=Date.now();
+    this.go('watch',{watchId:id,ws,we,time,playing:true,ctrl:true,order:[id,...s.order.filter(x=>x!==id)],f:{...s.f,watch:{r:0,c:1,m:{}}}});
+  }
+
+  hasNext(){const s=this.state,it=BY[s.watchId];return it.type!==0&&(s.we+1<epCount(it)||s.ws+1<it.n);}
+  nextEp(){const s=this.state,it=BY[s.watchId];if(!this.hasNext())return;
+    let ws=s.ws,we=s.we+1;if(we>=epCount(it)){ws++;we=0;}
+    this.last=Date.now();
+    this.setState({ws,we,time:0,playing:true,ctrl:true,progress:{...s.progress,[it.id]:{s:ws,e:we,t:0,d:durOf(it)}}});
+  }
+  seek(dt){const s=this.state,it=BY[s.watchId],d=durOf(it),t=Math.max(0,Math.min(d-1,s.time+dt));
+    this.setState({time:t,ctrl:true,progress:{...s.progress,[it.id]:{s:s.ws,e:s.we,t,d}}});}
+  togglePlay(){this.last=Date.now();this.setState(s=>({playing:!s.playing,ctrl:true}));}
+
+  activate(){const s=this.state,sc=s.screen,{r,c}=s.f[sc];
+    if((sc==='home'||sc==='catalog'||sc==='planning')&&r===0)return this.tab(c);
+    if(sc==='planning'){
+      if(r===1){if(c===0)return this.setState({favOnly:!s.favOnly});return this.setState({week:s.week+(c===1?-1:1)});}
+      const e=this.planCols()[c][s.f.planning.i];if(!e)return;
+      if(e.status==='soon')return this.openDetail(e.id);
+      const it=BY[e.id];return this.play(e.id,it.n-1,Math.min(e.ep-1,epCount(it)-1));}
+    if(sc==='home'){if(r===1)return c===0?this.play(FEAT.id):this.openDetail(FEAT.id);
+      if(r===2)return this.play(this.contList()[c]);
+      if(r===3)return this.openDetail(RECENT[c]);}
+    if(sc==='catalog'){if(r===1)return this.setState({genre:c,f:{...s.f,catalog:{...s.f.catalog,m:{...s.f.catalog.m,2:0}}}});
+      const it=this.catItems()[(r-2)*6+c];if(it)this.openDetail(it.id);return;}
+    if(sc==='detail'){const it=BY[s.detailId];
+      if(r===0){if(c===0)return this.play(it.id);return this.setState({myList:{...s.myList,[it.id]:!s.myList[it.id]}});}
+      if(it.type===0)return this.openDetail(this.similar(it)[c].id);
+      if(r===1)return this.setState({season:c});
+      if(r>=2)return this.play(it.id,s.season,r-2);}
+    if(sc==='watch'){if(r===0)return this.togglePlay();
+      if(c===0)return this.seek(-10);if(c===1)return this.togglePlay();if(c===2)return this.seek(10);
+      if(c===3)return this.setState(st=>({subs:(st.subs+1)%3,ctrl:true}));
+      if(c===4)return this.nextEp();}
+  }
+
+  renderVals(){
+    const s=this.state,sc=s.screen,F=s.f[sc];
+    const outline=this.props.focusStyle==='Contour';
+    const card=on=>on?{tf:outline?'scale(1.03)':'scale(1.1)',sh:outline?'0 0 0 5px #f5f5f7, 0 20px 40px rgba(0,0,0,.5)':'0 30px 60px rgba(0,0,0,.6)',gl:outline?0:1,txt:'#f5f5f7'}:{tf:'scale(1)',sh:'0 10px 24px rgba(0,0,0,.35)',gl:0,txt:'rgba(255,255,255,.55)'};
+    const btn=on=>on?{bg:'#f5f5f7',fg:'#0b0b0d',tf:'scale(1.08)',sh:'0 18px 40px rgba(0,0,0,.45)'}:{bg:'rgba(255,255,255,.16)',fg:'#f5f5f7',tf:'scale(1)',sh:'none'};
+    const at=(r,c)=>F.r===r&&F.c===c;
+    const colOf=r=>F.r===r?F.c:(F.m[r]||0);
+    const hd=(r,c)=>({onEnter:()=>this.hover(sc,r,c),onClick:()=>this.hover(sc,r,c,true)});
+    const poster=(it,r,c)=>({...card(at(r,c)),...hd(r,c),title:it.title,kind:KIND[it.type],meta:`${it.genre.toUpperCase()} · ${it.year}`,art:art(it.hue)});
+    const out={scale:s.scale,clock:s.clock,isHome:sc==='home',isCatalog:sc==='catalog',isDetail:sc==='detail',isWatch:sc==='watch',
+      showHints:this.props.showHints!==false&&sc!=='watch',feat:{title:FEAT.title,syn:FEAT.syn,meta:`${FEAT.year} · ${RATING[FEAT.genre]} · ${FEAT.n} saisons`}};
+
+    out.isPlanning=sc==='planning';
+    const tabSel=sc==='home'?0:sc==='planning'?1:s.type+2;
+    const navHidden=(sc==='home'&&F.r>=2)||(sc==='catalog'&&F.r>=3)||(sc==='planning'&&F.r===2&&F.i>=3);
+    out.showNav=sc==='home'||sc==='catalog'||sc==='planning';
+    out.navOp=navHidden?0:1;out.navY=navHidden?-30:0;out.navPe=navHidden?'none':'auto';
+    if(sc==='planning'){const cols=this.planCols(),ws=weekStart(s.week),we=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+6);
+      const total=cols.reduce((a,c)=>a+c.length,0);
+      const range=ws.getMonth()===we.getMonth()?`${ws.getDate()}–${we.getDate()} ${MONTHS[we.getMonth()]}`:`${ws.getDate()} ${MONTHS[ws.getMonth()]} – ${we.getDate()} ${MONTHS[we.getMonth()]}`;
+      const hp=(r,c,i)=>({onEnter:()=>this.hoverP(r,c,i),onClick:()=>this.hoverP(r,c,i,true)});
+      const ST={seen:['Vu','oklch(0.78 0.16 155)'],avail:['Dispo','rgba(255,255,255,.85)'],new:['Nouveau','oklch(0.8 0.13 215)'],soon:['À venir','oklch(0.82 0.14 80)']};
+      const STf={seen:'oklch(0.5 0.14 155)',avail:'#3a3a40',new:'oklch(0.5 0.13 225)',soon:'oklch(0.55 0.14 65)'};
+      const fi=F.r===2?F.i:0;
+      out.p={count:`${total} épisode${total>1?'s':''}`,y:F.r===2&&fi>=4?-(fi-3)*126:0,headOp:F.r===2&&fi>=4?0:1,
+        ctrls:[{label:s.favOnly?'♥ Favoris':'♡ Favoris'},{label:'‹'},{label:range+'  ›'}].map((b,c)=>{const on=F.r===1&&F.c===c,sel=c===0&&s.favOnly;
+          const lab=c===1?'‹  Préc.':c===2?'Suiv.  ›':b.label;
+          return {label:c===2?`${range}  ›`:lab,...hp(1,c,0),bg:on?'#f5f5f7':(sel?'rgba(255,255,255,.24)':'rgba(255,255,255,.1)'),fg:on?'#0b0b0d':'#f5f5f7',tf:on?'scale(1.08)':'scale(1)',sh:on?'0 14px 30px rgba(0,0,0,.45)':'none'};}),
+        days:cols.map((list,d)=>{const dt=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+d),today=s.week===0&&d===TODAY;
+          return {label:`${DAYS[d]} ${dt.getDate()}`,n:list.length,hbg:today?'#f5f5f7':'rgba(255,255,255,.1)',hfg:today?'#0b0b0d':'#f5f5f7',
+            eps:list.map((e,i)=>{const it=BY[e.id],on=F.r===2&&F.c===d&&F.i===i;
+              return {...hp(2,d,i),title:it.title,ep:e.ep,time:e.time,art:art(it.hue),dim:e.status==='seen'?1:0,status:ST[e.status][0],
+                sc:on?STf[e.status]:ST[e.status][1],bg:on?'#f5f5f7':'rgba(255,255,255,.07)',fg:on?'#0b0b0d':'#f5f5f7',
+                tf:on?(outline?'scale(1.02)':'scale(1.07)'):'scale(1)',sh:on?(outline?'0 0 0 4px #f5f5f7':'0 22px 44px rgba(0,0,0,.55)'):'none'};})};})};
+    } else out.p={ctrls:[],days:[]};
+    out.nav=['Accueil','Planning',...TYPES].map((label,c)=>{const on=at(0,c),sel=c===tabSel;
+      return {label,...hd(0,c),bg:on?'#f5f5f7':(sel?'rgba(255,255,255,.2)':'transparent'),fg:on?'#0b0b0d':(sel?'#f5f5f7':'rgba(255,255,255,.7)'),tf:on?'scale(1.08)':'scale(1)'};});
+
+    if(sc==='home'){const cont=this.contList(),r=F.r,c=F.c;
+      const bgIt=r===2?BY[cont[c]]:r===3?BY[RECENT[c]]:FEAT;
+      const fp=s.progress[FEAT.id];
+      out.home={bg:art(bgIt.hue),bgTitle:bgIt.title,y:[0,0,-380,-870][r],heroOp:r>=2?0:1,dim:r>=2?.5:0,
+        contX:shift(colOf(2),cont.length,416,40),recX:shift(colOf(3),RECENT.length,250,36),
+        heroBtns:[{label:fp?'Reprendre':'Lecture',icon:'▶',...btn(at(1,0)),...hd(1,0)},{label:'Plus d’infos',icon:'ⓘ',...btn(at(1,1)),...hd(1,1)}],
+        cont:cont.map((id,i)=>{const it=BY[id],p=s.progress[id],min=Math.max(1,Math.ceil((p.d-p.t)/60));
+          return {...card(at(2,i)),...hd(2,i),title:it.title,art:art(it.hue,1),pct:Math.round(p.t/p.d*100),
+            subtitle:it.type===0?`Film · reste ${min} min`:`S${p.s+1} · É${p.e+1} — reste ${min} min`};}),
+        rec:RECENT.map((id,i)=>poster(BY[id],3,i))};
+    } else out.home={heroBtns:[],cont:[],rec:[]};
+
+    if(sc==='catalog'){const items=this.catItems();
+      const fi=F.r>=2?items[(F.r-2)*6+F.c]:null,hue=fi?fi.hue:[230,210,320][s.type];
+      out.cat={title:TYPES[s.type],count:`${items.length} titre${items.length>1?'s':''}`,y:F.r>=3?-(F.r-2)*423:0,
+        glow:`radial-gradient(70% 55% at 50% 0%, oklch(0.4 0.1 ${hue} / .55), transparent 70%), #0b0b0d`,
+        chips:['Tout',...G].map((label,c)=>{const on=at(1,c),sel=c===s.genre;
+          return {label,...hd(1,c),bg:on?'#f5f5f7':(sel?'rgba(255,255,255,.24)':'rgba(255,255,255,.08)'),fg:on?'#0b0b0d':(sel?'#f5f5f7':'rgba(255,255,255,.7)'),tf:on?'scale(1.08)':'scale(1)'};}),
+        grid:items.map((it,i)=>poster(it,2+Math.floor(i/6),i%6)),empty:!items.length};
+    } else out.cat={chips:[],grid:[]};
+
+    if(sc==='detail'){const it=BY[s.detailId],p=s.progress[it.id],film=it.type===0,inList=!!s.myList[it.id];
+      const playLabel=p?(film?'Reprendre':`Reprendre S${p.s+1} É${p.e+1}`):(film?'Lecture':'Lecture S1 É1');
+      const sim=film?this.similar(it):[];
+      out.d={bg:art(it.hue),title:it.title,label:`${KIND[it.type]} · ${it.genre.toUpperCase()}`,syn:it.syn,
+        meta:`${it.year} · ${RATING[it.genre]} · ${film?fmtDur(it.n):`${it.n} saison${it.n>1?'s':''}`}`,
+        y:F.r===0?0:-340-(film?0:Math.max(0,F.r-3)*204),infoOp:F.r>=1?.35:1,isFilm:film,isSeries:!film,panelTitle:film?'Titres similaires':'Épisodes',
+        btns:[{label:playLabel,icon:'▶',...btn(at(0,0)),...hd(0,0)},{label:'Ma liste',icon:inList?'✓':'+',...btn(at(0,1)),...hd(0,1)}],
+        seasons:film?[]:Array.from({length:it.n},(_,c)=>{const on=at(1,c),sel=c===s.season;
+          return {label:`Saison ${c+1}`,...hd(1,c),bg:on?'#f5f5f7':(sel?'rgba(255,255,255,.22)':'transparent'),fg:on?'#0b0b0d':'#f5f5f7',tf:on?'scale(1.06)':'scale(1)',sh:on?'0 10px 24px rgba(0,0,0,.4)':'none'};}),
+        eps:film?[]:Array.from({length:epCount(it)},(_,i)=>{let pct=0;
+          if(p){if(p.s>s.season)pct=100;else if(p.s===s.season)pct=i<p.e?100:i===p.e?Math.round(p.t/p.d*100):0;}
+          return {...card(at(2+i,0)),...hd(2+i,0),num:i+1,name:epName(it,s.season,i),dur:pct===100?`${epDur(it)} min · Vu`:pct>0?`${epDur(it)} min · En cours`:`${epDur(it)} min`,art:art(it.hue,i+2+s.season*7),pct,barOp:pct>0?1:0};}),
+        epsX:shift(colOf(2),film?0:epCount(it),384,36,1728-96),
+        sim:sim.map((x,i)=>poster(x,1,i)),simX:shift(colOf(1),sim.length,250,36,1728-96)};
+    } else out.d={btns:[],seasons:[],eps:[],sim:[]};
+
+    if(sc==='watch'){const it=BY[s.watchId],d=durOf(it),film=it.type===0;
+      const labels=['−10 s',s.playing?'❚❚  Pause':'▶  Lecture','+10 s',`Sous-titres : ${['Non','FR','EN'][s.subs]}`];
+      if(!film)labels.push('Épisode suivant  ›');
+      out.w={title:it.title,ep:film?`${it.genre} · ${it.year} · ${fmtDur(it.n)}`:`Saison ${s.ws+1} · Épisode ${s.we+1} — ${epName(it,s.ws,s.we)}`,
+        art:art(it.hue,film?0:s.we+2+s.ws*7),kb:`scale(1.06) translate(${(Math.sin(s.time/14)*30).toFixed(1)}px, ${(Math.cos(s.time/19)*16).toFixed(1)}px)`,
+        pct:(s.time/d*100).toFixed(2),cur:fmt(s.time),rem:fmt(d-s.time),paused:!s.playing,
+        ctrlOp:s.ctrl?1:0,pe:s.ctrl?'auto':'none',cursor:s.ctrl?'default':'none',
+        trackH:at(0,0)?16:8,trackSh:at(0,0)?'0 0 0 4px rgba(255,255,255,.15)':'none',
+        subOn:s.subs>0,sub:s.subs?SUBS[s.subs-1][Math.floor(s.time/5)%6]:'',subBottom:s.ctrl?360:110,
+        scrubEnter:()=>this.hover('watch',0,0),
+        scrubClick:e=>{const rc=e.currentTarget.getBoundingClientRect(),fr=Math.max(0,Math.min(1,(e.clientX-rc.left)/rc.width));this.seek(fr*d-s.time);},
+        btns:labels.map((label,c)=>({label,...btn(at(1,c)),...hd(1,c)}))};
+    } else out.w={btns:[]};
+    out.wake=()=>{this.last=Date.now();if(!this.state.ctrl)this.setState({ctrl:true});};
+    return out;
+  }
+}
+</script>
+</body>
+</html>

@@ -36,6 +36,9 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <!-- LAUNCHER standard aussi : requis pour que `flutter run` détecte
+                     l'activité de lancement (aapt n'expose launchable-activity que pour LAUNCHER). -->
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
