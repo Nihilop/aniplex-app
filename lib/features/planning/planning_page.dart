@@ -50,14 +50,19 @@ class _PlanningPageState extends State<PlanningPage> {
             return const Center(child: CircularProgressIndicator(color: AppTheme.foreground));
           }
           final byDay = snap.data ?? const {};
-          final today = DateTime.now();
-          // 7 colonnes = 7 dates consécutives à partir d'aujourd'hui.
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          // 7 colonnes centrées sur aujourd'hui : 3 jours passés à gauche, 3 à venir.
+          const todayIndex = 3;
           final days = List.generate(7, (i) {
-            final date = today.add(Duration(days: i));
+            final date = today.add(Duration(days: i - todayIndex));
             return (date: date, entries: byDay[date.weekday] ?? const <PlanningEntry>[]);
           });
           final total = days.fold<int>(0, (n, d) => n + d.entries.length);
-          final autoDay = days.indexWhere((d) => d.entries.isNotEmpty); // 1er jour non vide
+          // Focus initial : aujourd'hui s'il a des épisodes, sinon 1er jour non vide.
+          final autoDay = days[todayIndex].entries.isNotEmpty
+              ? todayIndex
+              : days.indexWhere((d) => d.entries.isNotEmpty);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +88,7 @@ class _PlanningPageState extends State<PlanningPage> {
                     children: [
                       for (var di = 0; di < days.length; di++)
                         Expanded(
-                          child: _dayColumn(days[di].date, days[di].entries, di == 0, di == autoDay),
+                          child: _dayColumn(days[di].date, days[di].entries, di == todayIndex, di == autoDay),
                         ),
                     ],
                   ),

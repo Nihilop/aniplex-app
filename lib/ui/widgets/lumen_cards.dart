@@ -88,8 +88,11 @@ class PosterCard extends StatelessWidget {
           // au focus, l'anneau épouse exactement les coins de la carte.
           border: Border.all(color: focused ? AppTheme.foreground : Colors.transparent, width: 4),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
+        // Pas de clipBehavior sur le conteneur (il rognerait les coins du bord) :
+        // on clippe uniquement le contenu dans un ClipRRect interne.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard - 4),
+          child: Stack(
           fit: StackFit.expand,
           children: [
             LumenArt(seed: title, imageUrl: imageUrl, width: width, height: height),
@@ -150,6 +153,7 @@ class PosterCard extends StatelessWidget {
             ),
           ],
         ),
+        ),
       ),
     );
     return Padding(padding: EdgeInsets.symmetric(horizontal: sideMargin), child: poster);
@@ -198,8 +202,9 @@ class ContinueCard extends StatelessWidget {
                 boxShadow: focused ? AppTheme.focusShadow : AppTheme.restShadow,
                 border: Border.all(color: focused ? AppTheme.foreground : Colors.transparent, width: 4),
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard - 4),
+                child: Stack(
                 fit: StackFit.expand,
                 children: [
                   LumenArt(seed: title, imageUrl: imageUrl, width: width, height: height),
@@ -244,6 +249,7 @@ class ContinueCard extends StatelessWidget {
                       ),
                     ),
                 ],
+              ),
               ),
             ),
           ),

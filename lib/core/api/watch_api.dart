@@ -51,6 +51,21 @@ class WatchApi {
     }
   }
 
+  /// Pistes audio du fichier via render-engine (libellés serveur : « Français
+  /// (stéréo) », « Japonais (stéréo) »…). Le switch se fait en rouvrant le HLS
+  /// avec `?audio=<index>` (chaque piste a son propre cacheDir côté serveur).
+  Future<List<Track>> audioTracks(String sourceId) async {
+    try {
+      final res = await _api.get<Map<String, dynamic>>('/api/aniplex/render-engine/audio/$sourceId');
+      if (res.data?['success'] != true) return const [];
+      return ((res.data?['data'] as List?) ?? [])
+          .map((e) => Track.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// `GET /api/aniplex/segments/episode/:episodeId` — OP/ED/récap/aperçu (vide sans fichier).
   Future<List<Segment>> segments(String episodeId) async {
     try {
