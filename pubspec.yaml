@@ -1,7 +1,7 @@
 name: aniplex_tv
 description: Aniplex Android TV Client
 publish_to: 'none'
-version: 3.0.1+30001
+version: 3.0.2+30002
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

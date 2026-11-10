@@ -22,6 +22,11 @@ class PlayerService {
       final dynamic p = player.platform;
       await p?.setProperty('force-seekable', 'yes');
       await p?.setProperty('hr-seek', 'yes');
+      // Décodage matériel : media_kit laisse mpv en hwdec=no (décodage CPU) →
+      // les flux lourds (film « Originale » brut, HEVC/10-bit/1080p+) saturent
+      // le CPU faible de la TV. `auto-safe` confie le décodage au décodeur
+      // matériel (mediacodec sur Android) et retombe en soft si non supporté.
+      await p?.setProperty('hwdec', 'auto-safe');
     } catch (_) {}
   }
 
